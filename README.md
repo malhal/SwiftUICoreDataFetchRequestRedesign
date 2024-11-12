@@ -4,7 +4,7 @@ SwiftUI's `@FetchRequest` has an unfortunate flaw: its sort descriptors are lost
 
 This repository contains a sample project that shows the original fetch request and redesign side by side and demonstrates the flaw and how it is prevented. Simply launch the project on macOS or iPad landscap (so table sort headers appear), modify the sort of both tables by clicking the headers, then click the counter increment button to cause both `View`s to be re-initialized.
 
-The redesign invoves a `FetchRequest2` property wrapper and a `FetchResult2`. After initial configuration, the fetch can be  dynamically configured in the `result` computed property. This allows for the sort descriptors to only need to be configured in one place using the ascending state as the source of truth.
+The redesign invoves a `@FetchRequest2` property wrapper. It is init differently from `@FetchRequest`, i.e. no configuration, instead it can be dynamically configured, e.g. in an `onChange` action. This allows for the sort descriptors to only need to be configured in one place using the ascending state as the source of truth.
 ```
 struct FetchViewRedesign: View {
     
@@ -49,4 +49,4 @@ struct FetchViewRedesign: View {
 }
 ```
 
-![Screenshot](/Screenshots/Screenshot%202023-12-20%20at%2011.17.09.png)
+![Screenshot](/Screenshots/Screenshot.png)

@@ -24,7 +24,7 @@ struct FetchViewRedesign: View {
         Binding {
             _result.sortDescriptors
         } set: { v in
-			// after this, the onChange will set the new sortDescriptor.
+            // after this, the onChange will set the new sortDescriptor.
             ascending = v.first?.order == .forward
         }
     }

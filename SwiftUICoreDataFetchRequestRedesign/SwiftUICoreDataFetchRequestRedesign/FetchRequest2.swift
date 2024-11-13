@@ -27,9 +27,7 @@ import Combine
             coordinator.fetchedResultsController?.fetchRequest.sortDescriptors?.compactMap { SortDescriptor($0, comparing: ResultType.self) } ?? []
         }
         nonmutating set {
-            coordinator.fetchedResultsController?.fetchRequest.sortDescriptors = newValue.map{ so in
-                NSSortDescriptor(so)
-            }
+            coordinator.fetchedResultsController?.fetchRequest.sortDescriptors = newValue.map { NSSortDescriptor($0) }
             coordinator.result = nil
         }
     }
@@ -84,7 +82,6 @@ import Combine
             result = Result.success(controller.fetchedObjects as? [ResultType] ?? [])
         }
     
-        
         private var _result: Result<[ResultType], Error>?
         var result: Result<[ResultType], Error>! {
             get {

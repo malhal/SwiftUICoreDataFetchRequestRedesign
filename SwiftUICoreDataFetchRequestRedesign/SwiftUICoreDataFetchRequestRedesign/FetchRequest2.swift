@@ -15,10 +15,24 @@ import Combine
     @StateObject private var coordinator = Coordinator()
     
     private let initialSortDescriptors: [SortDescriptor<ResultType>]
+    private let initialNSSortDescriptors: (() -> [NSSortDescriptor])?
     private let initialNSPredicate: () -> NSPredicate?
+    
+    init(initialNSPredicate: @escaping @autoclosure () -> NSPredicate? = { nil }()) {
+        self.initialSortDescriptors = []
+        self.initialNSSortDescriptors = nil
+        self.initialNSPredicate = initialNSPredicate
+    }
     
     init(initialSortDescriptors: [SortDescriptor<ResultType>] = [], initialNSPredicate: @escaping @autoclosure () -> NSPredicate? = { nil }() ) {
         self.initialSortDescriptors = initialSortDescriptors
+        self.initialNSPredicate = initialNSPredicate
+        self.initialNSSortDescriptors = nil
+    }
+    
+    init(initialNSSortDescriptors: @escaping @autoclosure () -> [NSSortDescriptor] = { [] }(), initialNSPredicate: @escaping @autoclosure () -> NSPredicate? = { nil }() ) {
+        self.initialSortDescriptors = []
+        self.initialNSSortDescriptors = initialNSSortDescriptors
         self.initialNSPredicate = initialNSPredicate
     }
     
@@ -60,7 +74,12 @@ import Combine
         if coordinator.fetchedResultsController?.managedObjectContext != viewContext {
             let fr = coordinator.fetchedResultsController?.fetchRequest ?? {
                 let fr = NSFetchRequest<ResultType>(entityName: "\(ResultType.self)")
-                fr.sortDescriptors = initialSortDescriptors.map { NSSortDescriptor($0) }
+                if let initialNSSortDescriptors {
+                    fr.sortDescriptors = initialNSSortDescriptors()
+                }
+                else {
+                    fr.sortDescriptors = initialSortDescriptors.map { NSSortDescriptor($0) }
+                }
                 fr.predicate = initialNSPredicate()
                 return fr
             }()

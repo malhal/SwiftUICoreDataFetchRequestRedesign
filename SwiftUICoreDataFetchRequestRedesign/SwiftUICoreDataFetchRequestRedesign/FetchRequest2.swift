@@ -14,6 +14,14 @@ import Combine
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var coordinator = Coordinator()
     
+    private let initialSortDescriptors: [SortDescriptor<ResultType>]
+    private let initialNSPredicate: () -> NSPredicate?
+    
+    init(initialSortDescriptors: [SortDescriptor<ResultType>] = [], initialNSPredicate: @escaping @autoclosure () -> NSPredicate? = { nil }() ) {
+        self.initialSortDescriptors = initialSortDescriptors
+        self.initialNSPredicate = initialNSPredicate
+    }
+    
     var sortDescriptors: [SortDescriptor<ResultType>] {
         get {
             coordinator.fetchedResultsController?.fetchRequest.sortDescriptors?.compactMap { SortDescriptor($0, comparing: ResultType.self) } ?? []
@@ -54,7 +62,8 @@ import Combine
         if coordinator.fetchedResultsController?.managedObjectContext != viewContext {
             let fr = coordinator.fetchedResultsController?.fetchRequest ?? {
                 let fr = NSFetchRequest<ResultType>(entityName: "\(ResultType.self)")
-                fr.sortDescriptors = []
+                fr.sortDescriptors = initialSortDescriptors.map { NSSortDescriptor($0) }
+                fr.predicate = initialNSPredicate()
                 return fr
             }()
             coordinator.fetchedResultsController = NSFetchedResultsController(fetchRequest: fr, managedObjectContext: viewContext, sectionNameKeyPath: nil, cacheName: nil)

@@ -17,7 +17,7 @@ struct FetchViewRedesign: View {
     // for testing body recomputation
     let counter: Int
     
-    @FetchRequest2 var result: Result<[Item], Error>
+    @FetchRequest2(initialSortDescriptors: [SortDescriptor(\Item.timestamp, order: .forward)], initialNSPredicate: NSPredicate(value: true)) var result: Result<[Item], Error>
     
     // gets the sort descriptor directly from the fetch.
     // transforms from the sort descriptors set by the table to the ascending state bool.

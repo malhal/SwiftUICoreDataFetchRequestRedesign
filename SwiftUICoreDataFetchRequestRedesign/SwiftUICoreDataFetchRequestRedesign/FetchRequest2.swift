@@ -42,7 +42,7 @@ import Combine
         }
         nonmutating set {
             coordinator.fetchRequest.sortDescriptors = newValue.map { NSSortDescriptor($0) }
-            coordinator.fetchedResultsController = nil
+            coordinator.resetFetchedResultsController()
         }
     }
     
@@ -52,7 +52,7 @@ import Combine
         }
         nonmutating set {
             coordinator.fetchRequest.sortDescriptors = newValue
-            coordinator.fetchedResultsController = nil
+            coordinator.resetFetchedResultsController()
         }
     }
     
@@ -62,7 +62,7 @@ import Combine
         }
         nonmutating set {
             coordinator.fetchRequest.predicate = newValue
-            coordinator.fetchedResultsController = nil
+            coordinator.resetFetchedResultsController()
         }
     }
     
@@ -123,9 +123,10 @@ import Combine
                 }
                 return _fetchedResultsController
             }
-            set {
-                _fetchedResultsController = newValue
-            }
+        }
+        
+        func resetFetchedResultsController() {
+            _fetchedResultsController = nil
         }
         
         func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {

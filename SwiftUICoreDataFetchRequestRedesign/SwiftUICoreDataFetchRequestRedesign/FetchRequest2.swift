@@ -10,145 +10,112 @@ import CoreData
 import Combine
 
 @propertyWrapper struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
-    
+
     @Environment(\.managedObjectContext) private var viewContext
-    @StateObject private var coordinator = Coordinator()
+    @StateObject private var controller: FetchController<ResultType>
     
-    private let initialSortDescriptors: [SortDescriptor<ResultType>]
-    private let initialNSSortDescriptors: (() -> [NSSortDescriptor])?
-    private let initialNSPredicate: () -> NSPredicate?
-    
-    init(initialNSPredicate: @escaping @autoclosure () -> NSPredicate? = { nil }()) {
-        self.initialSortDescriptors = []
-        self.initialNSSortDescriptors = nil
-        self.initialNSPredicate = initialNSPredicate
+    init(intialSortDescriptors: [SortDescriptor<ResultType>], initialNSPredicate: NSPredicate? = nil) {
+        _controller = StateObject(wrappedValue: FetchController<ResultType>(sortDescriptors: intialSortDescriptors.map { NSSortDescriptor($0) }, predicate: initialNSPredicate))
     }
     
-    init(initialSortDescriptors: [SortDescriptor<ResultType>] = [], initialNSPredicate: @escaping @autoclosure () -> NSPredicate? = { nil }() ) {
-        self.initialSortDescriptors = initialSortDescriptors
-        self.initialNSPredicate = initialNSPredicate
-        self.initialNSSortDescriptors = nil
-    }
-    
-    init(initialNSSortDescriptors: @escaping @autoclosure () -> [NSSortDescriptor] = { [] }(), initialNSPredicate: @escaping @autoclosure () -> NSPredicate? = { nil }() ) {
-        self.initialSortDescriptors = []
-        self.initialNSSortDescriptors = initialNSSortDescriptors
-        self.initialNSPredicate = initialNSPredicate
+    init(initialNSSortDescriptors: [NSSortDescriptor], initialNSPredicate: NSPredicate? = nil) {
+        _controller = StateObject(wrappedValue: FetchController<ResultType>(sortDescriptors: initialNSSortDescriptors, predicate: initialNSPredicate))
     }
     
     var sortDescriptors: [SortDescriptor<ResultType>] {
         get {
-            coordinator.fetchRequest.sortDescriptors?.compactMap { SortDescriptor($0, comparing: ResultType.self) } ?? []
+            controller.fetchRequest.sortDescriptors?.compactMap { SortDescriptor($0, comparing: ResultType.self) } ?? []
         }
         nonmutating set {
-            coordinator.fetchRequest.sortDescriptors = newValue.map { NSSortDescriptor($0) }
-            coordinator.resetFetchedResultsController()
+            controller.fetchRequest.sortDescriptors = newValue.map { NSSortDescriptor($0) }
+            controller.invalidateCachedResult()
         }
     }
     
     var nsSortDescriptors: [NSSortDescriptor] {
         get {
-            coordinator.fetchRequest.sortDescriptors ?? []
+            controller.fetchRequest.sortDescriptors ?? []
         }
         nonmutating set {
-            coordinator.fetchRequest.sortDescriptors = newValue
-            coordinator.resetFetchedResultsController()
+            controller.fetchRequest.sortDescriptors = newValue
+            controller.invalidateCachedResult()
         }
     }
     
     var nsPredicate: NSPredicate? {
         get {
-            coordinator.fetchRequest.predicate
+            controller.fetchRequest.predicate
         }
         nonmutating set {
-            coordinator.fetchRequest.predicate = newValue
-            coordinator.resetFetchedResultsController()
+            controller.fetchRequest.predicate = newValue
+            controller.invalidateCachedResult()
         }
     }
     
     public var wrappedValue: Result<[ResultType], Error> {
-        coordinator.result
+        // a cached result, a refetch if the fetch changed or a new FRC if the context changed.
+        return controller.result(for: viewContext)
     }
     
-    private var initialFetchRequest: NSFetchRequest<ResultType> {
+}
+    
+
+@MainActor
+class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject {
+    
+    internal let fetchRequest: NSFetchRequest<ResultType>
+    private var fetchedResultsController: NSFetchedResultsController<ResultType>? {
+        didSet {
+            oldValue?.delegate = nil
+            fetchedResultsController?.delegate = self
+        }
+    }
+    
+    init(sortDescriptors: [NSSortDescriptor], predicate: NSPredicate? = nil) {
         let fr = NSFetchRequest<ResultType>(entityName: "\(ResultType.self)")
-        fr.predicate = initialNSPredicate()
-        if let initialNSSortDescriptors {
-            fr.sortDescriptors = initialNSSortDescriptors()
+        fr.sortDescriptors = sortDescriptors
+        fr.predicate = predicate
+        self.fetchRequest = fr
+    }
+    
+    func invalidateCachedResult() {
+        cachedResult = nil
+        objectWillChange.send()
+    }
+    
+    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        // only send if something read the results
+        cachedResult = Result.success(controller.fetchedObjects as! [ResultType])
+        objectWillChange.send()
+    }
+    
+    enum FetchedResultsControllerError: Error {
+        case initializationFailed
+    }
+    
+    private var cachedResult: Result<[ResultType], Error>?
+    func result(for context: NSManagedObjectContext) -> Result<[ResultType], Error> {
+        let frc: NSFetchedResultsController<ResultType>
+        if let fetchedResultsController {
+            if context == fetchedResultsController.managedObjectContext, let cachedResult {
+                return cachedResult
+            }
+            frc = fetchedResultsController
         }
         else {
-            fr.sortDescriptors = initialSortDescriptors.map { NSSortDescriptor($0) }
+            frc = NSFetchedResultsController<ResultType>(fetchRequest: fetchRequest, managedObjectContext: context, sectionNameKeyPath: nil, cacheName: nil)
+            fetchedResultsController = frc
+            cachedResult = nil
         }
-        return fr
-    }
-    
-    func update() {
-        if coordinator.managedObjectContext != viewContext {
-            coordinator.managedObjectContext = viewContext
+        let result: Result<[ResultType], Error>
+        do {
+            try frc.performFetch()
+            result = Result.success(frc.fetchedObjects ?? [])
         }
-        if coordinator.fetchRequest == nil {
-            coordinator.fetchRequest = initialFetchRequest
+        catch {
+            result = Result.failure(error)
         }
-    }
-    
-    @Observable
-    class Coordinator: NSObject, NSFetchedResultsControllerDelegate, ObservableObject {
-        
-        @ObservationIgnored
-        var managedObjectContext: NSManagedObjectContext! {
-            didSet {
-                _fetchedResultsController = nil
-            }
-        }
-        
-        @ObservationIgnored
-        var fetchRequest: NSFetchRequest<ResultType>! {
-            didSet {
-                _fetchedResultsController = nil
-            }
-        }
-        
-        @ObservationIgnored
-        var _fetchedResultsController: NSFetchedResultsController<ResultType>? {
-            didSet {
-                oldValue?.delegate = nil
-                _fetchedResultsController?.delegate = self
-                _result = nil
-            }
-        }
-        var fetchedResultsController: NSFetchedResultsController<ResultType>! {
-            get {
-                if _fetchedResultsController == nil {
-                    _fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: managedObjectContext, sectionNameKeyPath: nil, cacheName: nil)
-                }
-                return _fetchedResultsController
-            }
-        }
-        
-        func resetFetchedResultsController() {
-            _fetchedResultsController = nil
-        }
-        
-        func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-            _result = .success(controller.fetchedObjects as! [ResultType])
-        }
-    
-        var _result: Result<[ResultType], Error>?
-        var result: Result<[ResultType], Error>! {
-            get {
-                if _result == nil {
-                    do {
-                        let frc = fetchedResultsController!
-                        try frc.performFetch()
-                        _result = Result.success(frc.fetchedObjects!)
-                    }
-                    catch {
-                        _result = Result.failure(error)
-                    }
-                }
-                return _result!
-            }
-        }
+        cachedResult = result
+        return result
     }
 }
-

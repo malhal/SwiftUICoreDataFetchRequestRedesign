@@ -59,12 +59,13 @@ struct PersistenceController {
         })
         container.viewContext.automaticallyMergesChangesFromParent = true
         
-        let fr = Item.fetchRequest()
+        let fr = NSFetchRequest<NSNumber>(entityName: "Item")
+        fr.resultType = .countResultType
         let context = container.viewContext
         
         do {
             let results = try context.fetch(fr)
-            if results.isEmpty {
+            if results.first == 0 {
                 generateSampleData()
             }
         }

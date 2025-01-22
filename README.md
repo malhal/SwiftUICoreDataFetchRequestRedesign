@@ -1,6 +1,6 @@
 # SwiftUI CoreData @FetchRequest Redesign
 
-SwiftUI's `@FetchRequest` has an unfortunate flaw: if sort descriptors and predicate are set via properties after init are lost if the `View` containing the `@FetchRequest` is re-init. This redesign attempts to resolve that flaw by maintaining the state of the `NSFetchRequest` between `View` inits. This allows for the sort order to be a `@State` source of truth and is used to update the fetch request's sort descriptor. Another great feature is if the `NSManagedObjectContext` in the environment is replaced, results are updated from the new context whilst the original fetch request is maintained. The fetch error is exposed to allow to detect invalid fetches, although the use may be rather limited as core data appears to crash hard if for example an invalid predicate is supplied.
+SwiftUI's `@FetchRequest` can be quite buggy, e.g. if sort descriptors and predicate are set via properties after init are lost if the `View` containing the `@FetchRequest` is re-init. My redesign attempts to resolve that flaw by maintaining the state of the `NSFetchRequest` between `View` inits. This allows for the sort order to be a `@State` source of truth and is used to update the fetch request's sort descriptor. Another great feature is if the `NSManagedObjectContext` in the environment is replaced, results are updated from the new context whilst the original fetch request is maintained. The fetch error is exposed to allow to detect invalid fetches, although the use may be rather limited as core data appears to crash hard if for example an invalid predicate is supplied.
 
 This repository contains a sample project that shows the original fetch request and redesign side by side and demonstrates the flaw and how it is prevented. Simply launch the project on macOS or iPad landscap (so table sort headers appear), modify the sort of both tables by clicking the headers, then click the counter increment button to cause both `View`s to be re-initialized.
 
@@ -18,7 +18,7 @@ struct FetchViewRedesign: View {
     // for testing body recomputation
     let counter: Int
     
-    @FetchRequest2 var result: Result<[Item], Error>
+    @FetchRequest2(intialSortDescriptors: [], initialNSPredicate: NSPredicate(value: false)) var result: Result<[Item], Error>
     
     // gets the sort descriptor directly from the fetch.
     // transforms from the sort descriptors set by the table to the ascending state bool.

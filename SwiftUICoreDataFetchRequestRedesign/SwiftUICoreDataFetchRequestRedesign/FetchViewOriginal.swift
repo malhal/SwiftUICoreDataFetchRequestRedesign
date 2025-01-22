@@ -15,10 +15,11 @@ struct FetchViewOriginal: View {
     // for testing body recomputation
     let counter: Int
     
+    
     // initial sort [] means random and it resets to this every time this View is re-init by the parent body.
     // we cannot use the value of ascending in this decleration to set the correct sort.
-    @FetchRequest(sortDescriptors: []) var items: FetchedResults<Item>
-    
+//    @FetchRequest(sortDescriptors: []) var items: FetchedResults<Item>
+  
     var sortDescriptors: [SortDescriptor<Item>] {
         [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
     }
@@ -37,17 +38,30 @@ struct FetchViewOriginal: View {
         Button("Recompute \(counter2)") {
             counter2 += 1
         }
-        Table(items, sortOrder: sortDescriptorsBinding) {
-            TableColumn("timestamp", value: \.timestamp) { item in
-                Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+        FetchedResultsView(request: FetchRequest(sortDescriptors: sortDescriptors)) { results in
+            Table(results, sortOrder: sortDescriptorsBinding) {
+                TableColumn("timestamp", value: \.timestamp) { item in
+                    Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                }
             }
         }
-        .onChange(of: ascending, initial: true) {
-            items.sortDescriptors = sortDescriptors
+    }
+    
+    struct FetchedResultsView<Content, Result>: View where Content: View, Result: NSFetchRequestResult {
+        @FetchRequest var results: FetchedResults<Result>
+        let content: ((FetchedResults<Result>) -> Content)
+        
+        init(request: FetchRequest<Result>, @ViewBuilder content: @escaping (FetchedResults<Result>) -> Content) {
+            self._results = request
+            self.content = content
+        }
+        
+        var body: some View {
+            content(results)
         }
     }
 }
 
-#Preview {
-    FetchViewOriginal(counter: 0)
-}
+//#Preview {
+//    FetchViewOriginal(counter: 0)
+//}

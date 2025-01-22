@@ -7,34 +7,8 @@
 
 import SwiftUI
 
-fileprivate let fetchRequest = {
-    let fr = Item.fetchRequest()
-    fr.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: false)]
-    return fr
-}()
-
-struct MyView: View {
-    static let colors: [Color] = [.red, .green, .purple, .yellow, .blue, .orange, .teal]
-    
-    @State var color = Self.colors[0]
-    @State var counter = 0
-    
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 50, height: 50)
-            .shadow(radius: 3)
-            .overlay {
-                Text("\(counter)")
-            }
-            .padding(20)
-    }
-}
-
-
-
 struct FetchViewRedesign: View {
-    static var myImage: NSImage?
+    
     @Environment(\.managedObjectContext) var viewContext
     @State private var ascending: Bool = false
     
@@ -44,13 +18,15 @@ struct FetchViewRedesign: View {
     // for testing body recomputation
     let counter: Int
     
-    @FetchRequest2(intialSortDescriptors: [], initialNSPredicate: NSPredicate(value: false)) var result: Result<[Item], Error> // false predicate is a constant NSFalsePredicate that prevents the inital fetch with no sort from doing anything.
+    var sortDescriptors: [SortDescriptor<Item>] {
+        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+    }
     
     // gets the sort descriptor directly from the fetch.
     // transforms from the sort descriptors set by the table to the ascending state bool.
     var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
         Binding {
-            _result.sortDescriptors
+            sortDescriptors
         } set: { v in
             // after this, the onChange will set the new sortDescriptor.
             ascending = v.first?.order == .forward
@@ -59,11 +35,25 @@ struct FetchViewRedesign: View {
     
     @State var counter2 = 0
 
+    struct FetchedResultsView2<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
+        @FetchRequest2 var result: Result<[ResultType], Error>
+        let content: ((Result<[ResultType], Error>) -> Content)
+        
+        init(request: FetchRequest2<ResultType>, @ViewBuilder content: @escaping (Result<[ResultType], Error>) -> Content) {
+            self._result = request
+            self.content = content
+        }
+        
+        var body: some View {
+            content(result)
+        }
+    }
+    
     var body: some View {
         Button("Recompute \(counter2)") {
             counter2 += 1 // calls body
         }
-        Group {
+        FetchedResultsView2(request: FetchRequest2(sortDescriptors: sortDescriptors)) { result in
             switch(result) {
                 case let .failure(error):
                     Text(error.localizedDescription)
@@ -74,10 +64,6 @@ struct FetchViewRedesign: View {
                         }
                     }
             }
-        }
-        .onChange(of: ascending, initial: true) {
-            _result.sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
-            _result.nsPredicate = nil // clear the false predicate
         }
     }
 }

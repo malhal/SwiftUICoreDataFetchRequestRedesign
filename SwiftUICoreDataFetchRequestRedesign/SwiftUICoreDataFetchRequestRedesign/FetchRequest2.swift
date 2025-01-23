@@ -16,7 +16,6 @@ import Combine
     
     private let nsSortDescriptors: [NSSortDescriptor]
     private let nsPredicate: NSPredicate?
-    private var result: Result<[ResultType], Error>
     
     init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil) {
         self.init(nsSortDescriptors: sortDescriptors.map { NSSortDescriptor($0) }, nsPredicate: nsPredicate)
@@ -25,18 +24,11 @@ import Combine
     init(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil) {
         self.nsSortDescriptors = nsSortDescriptors
         self.nsPredicate = nsPredicate
-        self.result = .success([])
     }
     
     public var wrappedValue: Result<[ResultType], Error> {
-        result
+        controller.result(context: viewContext, sortDescriptors: nsSortDescriptors, predicate: nsPredicate)
     }
-    
-    mutating func update() {
-        print("update")
-        result = controller.result(context: viewContext, sortDescriptors: nsSortDescriptors, predicate: nsPredicate)
-    }
-    
 }
     
 

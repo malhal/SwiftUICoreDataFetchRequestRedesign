@@ -10,10 +10,10 @@ import SwiftUI
 struct FetchViewRedesign: View {
     
     @Environment(\.managedObjectContext) var viewContext
-    @State private var ascending: Bool = false
+    @State private var ascending: Bool = true
     
     // source of truth for the sort can easily be persisted
-    @AppStorage("Ascending") private var ascendingStored = false
+    @AppStorage("Ascending") private var ascendingStored = true
     
     // for testing body recomputation
     let counter: Int

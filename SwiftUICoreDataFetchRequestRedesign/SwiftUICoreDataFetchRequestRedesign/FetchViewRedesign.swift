@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreData
 
 struct FetchViewRedesign: View {
     
@@ -36,16 +37,11 @@ struct FetchViewRedesign: View {
     @State var counter2 = 0
 
     struct FetchedResultsView2<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
-        @FetchRequest2 var result: Result<[ResultType], Error>
-        let content: ((Result<[ResultType], Error>) -> Content)
-        
-        init(request: FetchRequest2<ResultType>, @ViewBuilder content: @escaping (Result<[ResultType], Error>) -> Content) {
-            self._result = request
-            self.content = content
-        }
+        let request: FetchRequest2<ResultType>
+        @ViewBuilder let content: ((Result<[ResultType], Error>) -> Content)
         
         var body: some View {
-            content(result)
+            content(request.wrappedValue)
         }
     }
     

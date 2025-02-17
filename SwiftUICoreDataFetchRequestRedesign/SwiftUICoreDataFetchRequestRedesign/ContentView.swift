@@ -10,23 +10,21 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
-
+    
     @State var counter = 0
-    
-    
     
     var body: some View {
         HStack {
             VStack {
                 Text("Launch on macOS or iPad landscape so sortable table headers appear. First click both headers to change the sort order of both tables, then click increment button. Notice Original loses the modified sort order but Redesign does not.").padding()
-                    
+                
                 Button("Increment \(counter)") {
                     counter += 1
                 }
                 Text("Increment counter causes FetchViewOriginal and FetchViewRedesign to be re-init.").padding()
-                    
+                
             }
-            
+            // NavigationStack {
             VStack {
                 Text("FetchViewOriginal")
                 FetchViewOriginal(counter: counter)
@@ -36,18 +34,18 @@ struct ContentView: View {
                 FetchViewRedesign(counter: counter)
             }
         }
-            .toolbar {
+        .toolbar {
 #if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                EditButton()
+            }
 #endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+            ToolbarItem {
+                Button(action: addItem) {
+                    Label("Add Item", systemImage: "plus")
                 }
             }
+        }
     }
 
     private func addItem() {

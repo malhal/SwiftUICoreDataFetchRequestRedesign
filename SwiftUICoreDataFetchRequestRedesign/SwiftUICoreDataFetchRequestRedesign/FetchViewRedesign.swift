@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import SwiftData
 
 struct FetchViewRedesign: View {
     
@@ -35,21 +36,29 @@ struct FetchViewRedesign: View {
     }
     
     @State var counter2 = 0
-
-    struct FetchedResultsView2<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
-        let request: FetchRequest2<ResultType>
-        @ViewBuilder let content: ((Result<[ResultType], Error>) -> Content)
-        
-        var body: some View {
-            content(request.wrappedValue)
-        }
+    
+    @StateObject var controller = FetchController<Item>()
+    
+//    struct FetchedResultsView2<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
+//        let request: FetchRequest2<Result<[ResultType], Error>, ResultType>
+//        @ViewBuilder let content: ((Result<[ResultType], Error>) -> Content)
+//        
+//        var body: some View {
+//            content(request.wrappedValue)
+//        }
+//    }
+    
+    var result: Result<[Item], Error> {
+        controller.result(context: viewContext, sortDescriptors: sortDescriptors.map { NSSortDescriptor($0) })
     }
     
     var body: some View {
-        Button("Recompute \(counter2)") {
-            counter2 += 1 // calls body
-        }
-        FetchedResultsView2(request: FetchRequest2(sortDescriptors: sortDescriptors)) { result in
+        
+        VStack {
+            Button("Recompute \(counter2)") {
+                counter2 += 1 // calls body
+            }
+            // FetchedResultsView2(request: FetchRequest2(sortDescriptors: sortDescriptors)) { result in
             switch(result) {
                 case let .failure(error):
                     Text(error.localizedDescription)

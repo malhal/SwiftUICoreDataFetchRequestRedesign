@@ -9,12 +9,13 @@ import SwiftUI
 import CoreData
 import Combine
 
-@propertyWrapper struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
-
+@MainActor @propertyWrapper
+struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
+    
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var controller = FetchController<ResultType>()
     
-    private let nsSortDescriptors: [NSSortDescriptor]
+    private let nsSortDescriptors: [NSSortDescriptor]?
     private let nsPredicate: NSPredicate?
     
     init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil) {
@@ -26,11 +27,10 @@ import Combine
         self.nsPredicate = nsPredicate
     }
     
-    public var wrappedValue: Result<[ResultType], Error> {
+    var wrappedValue: Result<[ResultType], Error> {
         controller.result(context: viewContext, sortDescriptors: nsSortDescriptors, predicate: nsPredicate)
     }
 }
-    
 
 @MainActor
 class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject {
@@ -53,7 +53,7 @@ class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurren
     }
     
     private var cachedResult: Result<[ResultType], Error>?
-    func result(context: NSManagedObjectContext, sortDescriptors: [NSSortDescriptor], predicate: NSPredicate?) -> Result<[ResultType], Error> {
+    func result(context: NSManagedObjectContext, sortDescriptors: [NSSortDescriptor]? = nil, predicate: NSPredicate? = nil) -> Result<[ResultType], Error> {
         
         let fr = fetchedResultsController?.fetchRequest ?? NSFetchRequest<ResultType>(entityName: "\(ResultType.self)")
         if fr.sortDescriptors != sortDescriptors {

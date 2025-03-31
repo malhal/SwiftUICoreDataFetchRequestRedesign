@@ -48,10 +48,6 @@ class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurren
         objectWillChange.send()
     }
     
-    enum FetchedResultsControllerError: Error {
-        case initializationFailed
-    }
-    
     private var cachedResult: Result<[ResultType], Error>?
     func result(context: NSManagedObjectContext, sortDescriptors: [NSSortDescriptor]? = nil, predicate: NSPredicate? = nil) -> Result<[ResultType], Error> {
         

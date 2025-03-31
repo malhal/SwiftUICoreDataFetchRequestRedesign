@@ -7,7 +7,6 @@
 
 import SwiftUI
 import CoreData
-import SwiftData
 
 struct FetchViewRedesign: View {
     

@@ -7,7 +7,6 @@
 
 import SwiftUI
 import CoreData
-import Combine
 
 @MainActor @propertyWrapper
 struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {

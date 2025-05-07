@@ -62,16 +62,20 @@ struct FetchViewRedesign: View {
     var body: some View {
         
         VStack {
-            Button("Recompute \(counter2)") {
-                counter2 += 1 // calls body
-            }
-            Button("Update") {
-                
-                if case let .success(items) = result {
-                    // items.first?.timestamp = Date()
-                    
-                    if let first = items.first {
-                        viewContext.delete(first)
+            HStack {
+                Button("Recompute \(counter2)") {
+                    counter2 += 1 // calls body
+                }
+                Button("Update") {
+                    if case let .success(items) = result {
+                        items.first?.timestamp = Date()
+                    }
+                }
+                Button("Delete") {
+                    if case let .success(items) = result {
+                        if let first = items.first {
+                            viewContext.delete(first)
+                        }
                     }
                 }
             }

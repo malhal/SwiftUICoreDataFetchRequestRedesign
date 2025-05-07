@@ -72,6 +72,7 @@ class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurren
         if let existingFRC = fetchedResultsController, context == existingFRC.managedObjectContext {
             frc = existingFRC
         } else {
+            fr.includesPropertyValues = false
             frc = NSFetchedResultsController<ResultType>(fetchRequest: fr, managedObjectContext: context, sectionNameKeyPath: nil, cacheName: nil)
             fetchedResultsController = frc
             cachedResult = nil

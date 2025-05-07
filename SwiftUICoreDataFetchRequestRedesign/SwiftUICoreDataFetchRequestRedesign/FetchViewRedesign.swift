@@ -38,18 +38,27 @@ struct FetchViewRedesign: View {
     
     @StateObject var controller = FetchController<Item>()
     
-//    struct FetchedResultsView2<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
-//        let request: FetchRequest2<Result<[ResultType], Error>, ResultType>
-//        @ViewBuilder let content: ((Result<[ResultType], Error>) -> Content)
-//        
-//        var body: some View {
-//            content(request.wrappedValue)
-//        }
-//    }
+    //    struct FetchedResultsView2<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
+    //        let request: FetchRequest2<Result<[ResultType], Error>, ResultType>
+    //        @ViewBuilder let content: ((Result<[ResultType], Error>) -> Content)
+    //
+    //        var body: some View {
+    //            content(request.wrappedValue)
+    //        }
+    //    }
     
     var result: Result<[Item], Error> {
-        controller.result(context: viewContext, sortDescriptors: sortDescriptors.map { NSSortDescriptor($0) })
+        Result { try controller.result(context: viewContext, sortDescriptors: sortDescriptors.map { NSSortDescriptor($0) }) }
     }
+    
+    struct ItemRow: View {
+        @ObservedObject var item: Item
+        var body: some View {
+            //Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+            TextField("Malc", text: Binding($item.text) ?? .constant(""))
+        }
+    }
+    
     
     var body: some View {
         
@@ -57,14 +66,24 @@ struct FetchViewRedesign: View {
             Button("Recompute \(counter2)") {
                 counter2 += 1 // calls body
             }
-            // FetchedResultsView2(request: FetchRequest2(sortDescriptors: sortDescriptors)) { result in
+            Button("Update") {
+                
+                if case let .success(items) = result {
+                    // items.first?.timestamp = Date()
+                    
+                    if let first = items.first {
+                        viewContext.delete(first)
+                    }
+                }
+            }
+            //FetchedResultsView2(request: FetchRequest2(sortDescriptors: sortDescriptors)) { result in
             switch(result) {
                 case let .failure(error):
                     Text(error.localizedDescription)
                 case let .success(items):
                     Table(items, sortOrder: sortDescriptorsBinding) {
                         TableColumn("timestamp", value: \.timestamp) { item in
-                            Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                            ItemRow(item: item)
                         }
                     }
             }

@@ -54,8 +54,7 @@ struct FetchViewRedesign: View {
     struct ItemRow: View {
         @ObservedObject var item: Item
         var body: some View {
-            //Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
-            TextField("Malc", text: Binding($item.text) ?? .constant(""))
+            Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
         }
     }
     

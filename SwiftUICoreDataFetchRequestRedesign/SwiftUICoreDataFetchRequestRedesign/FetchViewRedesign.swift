@@ -39,7 +39,7 @@ struct FetchViewRedesign: View {
     @StateObject var controller = FetchController<Item>()
     
     var result: Result<[Item], Error> {
-        Result { try controller.result(context: viewContext, sortDescriptors: sortDescriptors.map { NSSortDescriptor($0) }) }
+        Result { try controller.result(context: viewContext, sortDescriptors: sortDescriptors.map(NSSortDescriptor.init)) }
     }
     
     struct ItemRow: View {

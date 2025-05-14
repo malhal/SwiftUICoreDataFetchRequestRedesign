@@ -18,7 +18,7 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
     private let nsPredicate: NSPredicate?
     
     init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil) {
-        self.init(nsSortDescriptors: sortDescriptors.map { NSSortDescriptor($0) }, nsPredicate: nsPredicate)
+        self.init(nsSortDescriptors: sortDescriptors.map(NSSortDescriptor.init), nsPredicate: nsPredicate)
     }
     
     init(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil) {

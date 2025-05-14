@@ -34,6 +34,10 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
 @MainActor
 class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject {
     
+    private var cachedResult: [ResultType]?
+    
+    private var animation: Animation?
+    
     private var fetchedResultsController: NSFetchedResultsController<ResultType>? {
         didSet {
             oldValue?.delegate = nil
@@ -42,11 +46,11 @@ class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurren
     }
     
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-        // only send if something read the results
-        
         if cachedResult == nil {
             cachedResult = controller.fetchedObjects as? [ResultType] ?? []
-            objectWillChange.send()
+            withAnimation(animation) {
+                objectWillChange.send()
+            }
         }
     }
     
@@ -56,8 +60,10 @@ class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurren
         }
     }
     
-    private var cachedResult: [ResultType]?
-    func result(context: NSManagedObjectContext, sortDescriptors: [NSSortDescriptor]? = nil, predicate: NSPredicate? = nil) throws -> [ResultType] {
+    func result(context: NSManagedObjectContext, sortDescriptors: [NSSortDescriptor]? = nil, predicate: NSPredicate? = nil, animation: Animation? = .default) throws -> [ResultType] {
+        
+        self.animation = animation
+        
         let fr = fetchedResultsController?.fetchRequest ?? NSFetchRequest<ResultType>(entityName: "\(ResultType.self)")
         if fr.sortDescriptors != sortDescriptors {
             fr.sortDescriptors = sortDescriptors
@@ -72,7 +78,6 @@ class FetchController<ResultType: NSFetchRequestResult>: NSObject, @preconcurren
         if let existingFRC = fetchedResultsController, context == existingFRC.managedObjectContext {
             frc = existingFRC
         } else {
-            fr.includesPropertyValues = false
             frc = NSFetchedResultsController<ResultType>(fetchRequest: fr, managedObjectContext: context, sectionNameKeyPath: nil, cacheName: nil)
             fetchedResultsController = frc
             cachedResult = nil

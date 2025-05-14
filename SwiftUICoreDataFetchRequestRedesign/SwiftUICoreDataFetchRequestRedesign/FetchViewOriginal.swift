@@ -10,11 +10,11 @@ import CoreData
 
 struct FetchViewOriginal: View {
     
-    // source of truth for the sort
-    @State var ascending = true
-    
     // for testing body recomputation
     let counter: Int
+    
+    // source of truth for the sort
+    @State private var ascending = true
     
     @Environment(\.managedObjectContext) private var viewContext
     
@@ -34,7 +34,7 @@ struct FetchViewOriginal: View {
         }
     }
     
-    @State var counter2 = 0
+    @State private var counter2 = 0
     
     var body: some View {
         VStack {
@@ -89,12 +89,16 @@ struct FetchViewOriginal: View {
         let request: FetchRequest<Result>
         @ViewBuilder let content: (FetchedResults<Result>) -> Content
         
+        var results: FetchedResults<Result> {
+            request.wrappedValue
+        }
+        
         var body: some View {
-            content(request.wrappedValue)
+            content(results)
         }
     }
 }
 
-//#Preview {
-//    FetchViewOriginal(counter: 0)
-//}
+#Preview {
+    FetchViewOriginal(counter: 0)
+}

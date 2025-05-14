@@ -38,29 +38,19 @@ struct FetchViewRedesign: View {
     
     @StateObject var controller = FetchController<Item>()
     
-    //    struct FetchedResultsView2<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
-    //        let request: FetchRequest2<Result<[ResultType], Error>, ResultType>
-    //        @ViewBuilder let content: ((Result<[ResultType], Error>) -> Content)
-    //
-    //        var body: some View {
-    //            content(request.wrappedValue)
-    //        }
-    //    }
-    
     var result: Result<[Item], Error> {
         Result { try controller.result(context: viewContext, sortDescriptors: sortDescriptors.map { NSSortDescriptor($0) }) }
     }
     
     struct ItemRow: View {
         @ObservedObject var item: Item
+        
         var body: some View {
             Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
         }
     }
     
-    
     var body: some View {
-        
         VStack {
             HStack {
                 Button("Recompute \(counter2)") {
@@ -79,7 +69,6 @@ struct FetchViewRedesign: View {
                     }
                 }
             }
-            //FetchedResultsView2(request: FetchRequest2(sortDescriptors: sortDescriptors)) { result in
             switch(result) {
                 case let .failure(error):
                     Text(error.localizedDescription)

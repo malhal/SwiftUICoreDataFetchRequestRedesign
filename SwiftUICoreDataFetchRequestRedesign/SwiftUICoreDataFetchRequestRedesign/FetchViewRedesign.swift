@@ -10,7 +10,6 @@ import CoreData
 
 struct FetchViewRedesign: View {
     
-    @Environment(\.managedObjectContext) var viewContext
     @State private var ascending: Bool = true
     
     // source of truth for the sort can easily be persisted
@@ -34,52 +33,61 @@ struct FetchViewRedesign: View {
         }
     }
     
-    @State var counter2 = 0
-    
-    @StateObject var controller = FetchController<Item>()
-    
-    var result: Result<[Item], Error> {
-        Result { try controller.result(context: viewContext, sortDescriptors: sortDescriptors.map(NSSortDescriptor.init)) }
-    }
-    
-    struct ItemRow: View {
-        @ObservedObject var item: Item
-        
-        var body: some View {
-            Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
-        }
-    }
+   
     
     var body: some View {
         VStack {
-            HStack {
-                Button("Recompute \(counter2)") {
-                    counter2 += 1 // calls body
-                }
-                Button("Update") {
-                    if case let .success(items) = result {
-                        items.first?.timestamp = Date()
-                    }
-                }
-                Button("Delete") {
-                    if case let .success(items) = result {
-                        if let first = items.first {
-                            viewContext.delete(first)
-                        }
-                    }
-                }
+            FetchView(sortDescriptors: sortDescriptorsBinding)
+        }
+    }
+    
+    struct FetchView: View {
+        @Environment(\.managedObjectContext) var viewContext
+        @Binding var sortDescriptors: [SortDescriptor<Item>]
+        @State var counter2 = 0
+        @FetchRequest2 var result: Result<[Item], Error>
+        
+        init(sortDescriptors: Binding<[SortDescriptor<Item>]>) {
+            _sortDescriptors = sortDescriptors
+            _result = FetchRequest2(sortDescriptors: sortDescriptors.wrappedValue)
+        }
+        
+        struct ItemRow: View {
+            @ObservedObject var item: Item
+            
+            var body: some View {
+                Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
             }
+        }
+        
+        var body: some View {
+            
             switch(result) {
                 case let .failure(error):
                     Text(error.localizedDescription)
                 case let .success(items):
-                    Table(items, sortOrder: sortDescriptorsBinding) {
+                    HStack {
+                        Button("Recompute \(counter2)") {
+                            counter2 += 1 // calls body
+                        }
+                        Button("Update") {
+                            items.first?.timestamp = Date()
+                        }
+                        Button("Delete") {
+                            if let first = items.first {
+                                viewContext.delete(first)
+                            }
+                        }
+                    }
+                    
+                    Table(items, sortOrder: $sortDescriptors) {
                         TableColumn("timestamp", value: \.timestamp) { item in
                             ItemRow(item: item)
                         }
                     }
             }
         }
+        
     }
 }
 

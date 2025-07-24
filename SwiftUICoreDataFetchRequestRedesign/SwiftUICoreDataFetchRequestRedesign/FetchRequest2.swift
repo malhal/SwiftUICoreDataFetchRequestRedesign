@@ -4,6 +4,8 @@
 //
 //  Created by Malcolm Hall on 12/11/2024.
 //
+// This design is essentially a lazy loader of the fetcehd results.
+// Once could argue doing a fetch from body is bad.
 
 import SwiftUI
 import CoreData

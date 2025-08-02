@@ -22,7 +22,12 @@ struct FetchRequest2<ResultType>: @preconcurrency DynamicProperty where ResultTy
     
     init(sortDescriptors: [SortDescriptor<ResultType>] = [], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
         let nsSortDescriptors = sortDescriptors.map(NSSortDescriptor.init)
-        self.configurator = .components(sortDescriptors: nsSortDescriptors, predicate: nsPredicate)
+        self.configurator = .components(nsSortDescriptors: nsSortDescriptors, predicate: nsPredicate)
+        self.changesAnimation = changesAnimation
+    }
+    
+    init(nsSortDescriptors: [NSSortDescriptor] = [], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
+        self.configurator = .components(nsSortDescriptors: nsSortDescriptors, predicate: nsPredicate)
         self.changesAnimation = changesAnimation
     }
     
@@ -60,7 +65,7 @@ struct FetchRequest2<ResultType>: @preconcurrency DynamicProperty where ResultTy
     
     
     enum Configurator {
-        case components(sortDescriptors: [NSSortDescriptor], predicate: NSPredicate?)
+        case components(nsSortDescriptors: [NSSortDescriptor], predicate: NSPredicate?)
         case request(NSFetchRequest<ResultType>)
         
         func configure(fetchRequest fr: NSFetchRequest<ResultType>) -> Bool {
@@ -83,8 +88,8 @@ struct FetchRequest2<ResultType>: @preconcurrency DynamicProperty where ResultTy
             }
             
             switch self {
-                case .components(let sortDescriptors, let predicate):
-                    assignIfDifferent(\.sortDescriptors, sortDescriptors)
+                case .components(let nsSortDescriptors, let predicate):
+                    assignIfDifferent(\.sortDescriptors, nsSortDescriptors)
                     assignIfDifferent(\.predicate, predicate)
                     
                 case .request(let newRequest):

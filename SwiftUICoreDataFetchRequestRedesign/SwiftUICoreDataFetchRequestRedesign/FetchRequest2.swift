@@ -11,7 +11,7 @@ import SwiftUI
 import CoreData
 
 @MainActor @propertyWrapper
-struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
+struct FetchRequest2<ResultType>: @preconcurrency DynamicProperty where ResultType: NSManagedObject {
     
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var controller = FetchController()
@@ -28,15 +28,14 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
         self.nsPredicate = nsPredicate
     }
     
-    var wrappedValue: Result<[ResultType], Error> {
-        Result { try controller.result(context: viewContext, sortDescriptors: nsSortDescriptors, predicate: nsPredicate) }
-    }
+    var wrappedValue: Result<[ResultType], Error> = .success([])
     
+    mutating func update() {
+        wrappedValue = Result { try controller.result(context: viewContext, sortDescriptors: nsSortDescriptors, predicate: nsPredicate) }
+    }
     
     @MainActor
     class FetchController: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject {
-        
-        private var cachedResult: [ResultType]?
         
         private var animation: Animation?
         
@@ -47,18 +46,11 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
             }
         }
         
-        func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-            if cachedResult == nil {
-                cachedResult = controller.fetchedObjects as? [ResultType] ?? []
+        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
+            if type != .update {
                 withAnimation(animation) {
                     objectWillChange.send()
                 }
-            }
-        }
-        
-        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
-            if type != .update {
-                cachedResult = nil
             }
         }
         
@@ -66,14 +58,16 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
             
             self.animation = animation
             
+            var fetchNeeded = false
+            
             let fr = fetchedResultsController?.fetchRequest ?? NSFetchRequest<ResultType>(entityName: "\(ResultType.self)")
             if fr.sortDescriptors != sortDescriptors {
                 fr.sortDescriptors = sortDescriptors
-                cachedResult = nil
+                fetchNeeded = true
             }
             if fr.predicate != predicate {
                 fr.predicate = predicate
-                cachedResult = nil
+                fetchNeeded = true
             }
             
             let frc: NSFetchedResultsController<ResultType>
@@ -82,17 +76,13 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
             } else {
                 frc = NSFetchedResultsController<ResultType>(fetchRequest: fr, managedObjectContext: context, sectionNameKeyPath: nil, cacheName: nil)
                 fetchedResultsController = frc
-                cachedResult = nil
+                fetchNeeded = true
             }
             
-            if let cachedResult {
-                return cachedResult
+            if fetchNeeded {
+                try frc.performFetch()
             }
-            
-            try frc.performFetch()
-            let result = frc.fetchedObjects ?? []
-            cachedResult = result
-            return result
+            return frc.fetchedObjects ?? []
         }
     }
 

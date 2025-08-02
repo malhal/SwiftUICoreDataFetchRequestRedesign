@@ -7,9 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		ECBDFB012E32799800C1CA4F /* FetchRequest3.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECBDFB002E32799800C1CA4F /* FetchRequest3.swift */; };
-		ECBDFB032E327A6200C1CA4F /* FetchViewRedesign3.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECBDFB022E327A6200C1CA4F /* FetchViewRedesign3.swift */; };
-		ECE1839F2E32B86A00C06D8C /* FetchViewOriginal2.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE1839E2E32B86A00C06D8C /* FetchViewOriginal2.swift */; };
 		ECE9C3CE2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesignApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE9C3CD2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesignApp.swift */; };
 		ECE9C3D02B32F15D00CF6103 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE9C3CF2B32F15D00CF6103 /* Persistence.swift */; };
 		ECE9C3D32B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = ECE9C3D12B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.xcdatamodeld */; };
@@ -22,9 +19,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		ECBDFB002E32799800C1CA4F /* FetchRequest3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchRequest3.swift; sourceTree = "<group>"; };
-		ECBDFB022E327A6200C1CA4F /* FetchViewRedesign3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchViewRedesign3.swift; sourceTree = "<group>"; };
-		ECE1839E2E32B86A00C06D8C /* FetchViewOriginal2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchViewOriginal2.swift; sourceTree = "<group>"; };
 		ECE9C3CA2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftUICoreDataFetchRequestRedesign.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ECE9C3CD2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesignApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUICoreDataFetchRequestRedesignApp.swift; sourceTree = "<group>"; };
 		ECE9C3CF2B32F15D00CF6103 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
@@ -78,11 +72,8 @@
 				ECE9C3CF2B32F15D00CF6103 /* Persistence.swift */,
 				ECE9C3D42B32F15D00CF6103 /* ContentView.swift */,
 				ECE9C3E12B32F3E100CF6103 /* FetchViewOriginal.swift */,
-				ECE1839E2E32B86A00C06D8C /* FetchViewOriginal2.swift */,
 				ECE9C3E32B32F61900CF6103 /* FetchViewRedesign.swift */,
-				ECBDFB022E327A6200C1CA4F /* FetchViewRedesign3.swift */,
 				ECE9C4962B33019400CF6103 /* FetchRequest2.swift */,
-				ECBDFB002E32799800C1CA4F /* FetchRequest3.swift */,
 				ECE9C3D62B32F15F00CF6103 /* Assets.xcassets */,
 				ECE9C3D82B32F15F00CF6103 /* SwiftUICoreDataFetchRequestRedesign.entitlements */,
 				ECE9C3D12B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.xcdatamodeld */,
@@ -179,14 +170,11 @@
 			files = (
 				ECE9C3D32B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.xcdatamodeld in Sources */,
 				ECE9C3E22B32F3E100CF6103 /* FetchViewOriginal.swift in Sources */,
-				ECBDFB032E327A6200C1CA4F /* FetchViewRedesign3.swift in Sources */,
 				ECE9C3E42B32F61900CF6103 /* FetchViewRedesign.swift in Sources */,
 				ECE9C3CE2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesignApp.swift in Sources */,
 				ECE9C3D52B32F15D00CF6103 /* ContentView.swift in Sources */,
-				ECE1839F2E32B86A00C06D8C /* FetchViewOriginal2.swift in Sources */,
 				ECE9C3D02B32F15D00CF6103 /* Persistence.swift in Sources */,
 				ECE9C4972B33019400CF6103 /* FetchRequest2.swift in Sources */,
-				ECBDFB012E32799800C1CA4F /* FetchRequest3.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

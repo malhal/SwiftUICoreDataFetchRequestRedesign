@@ -27,11 +27,11 @@ struct ContentView: View {
             // NavigationStack {
             VStack {
                 Text("FetchViewOriginal")
-                FetchViewOriginal2(counter: counter)
+                FetchViewOriginal(counter: counter)
             }
             VStack {
                 Text("FetchViewRedesign")
-            //    FetchViewRedesign3(counter: counter)
+                FetchViewRedesign(counter: counter)
             }
         }
         .toolbar {

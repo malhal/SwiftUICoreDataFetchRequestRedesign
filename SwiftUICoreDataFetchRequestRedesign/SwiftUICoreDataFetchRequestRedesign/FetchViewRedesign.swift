@@ -33,8 +33,6 @@ struct FetchViewRedesign: View {
         }
     }
     
-   
-    
     var body: some View {
         VStack {
             FetchView(sortDescriptors: sortDescriptorsBinding)
@@ -61,7 +59,6 @@ struct FetchViewRedesign: View {
         }
         
         var body: some View {
-            
             switch(result) {
                 case let .failure(error):
                     Text(error.localizedDescription)
@@ -87,7 +84,6 @@ struct FetchViewRedesign: View {
                     }
             }
         }
-        
     }
 }
 

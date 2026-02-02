@@ -67,7 +67,7 @@ struct FetchViewOriginal: View {
             FetchedResultsView(request: FetchRequest(sortDescriptors: sortDescriptors)) { results in
                 Table(results, sortOrder: sortDescriptorsBinding) {
                     //    List(results) { item in
-                    TableColumn("timestamp" as String, value: \.timestamp) { item in
+                    TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
                         //       NavigationLink {
                         //                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
                         //                            .toolbar {

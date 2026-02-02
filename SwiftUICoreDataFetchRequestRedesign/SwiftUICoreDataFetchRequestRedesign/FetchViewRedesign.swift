@@ -80,7 +80,7 @@ struct FetchViewRedesign: View {
                     }
                     
                     Table(items, sortOrder: $sortDescriptors) {
-                        TableColumn(LocalizedStringKey("timestamp"), value: \.timestamp) { item in
+                        TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
                             ItemRow(item: item)
                         }
                     }

@@ -43,8 +43,10 @@ struct FetchViewRedesign: View {
         @Environment(\.managedObjectContext) var viewContext
         @Binding var sortDescriptors: [SortDescriptor<Item>]
         @State var counter2 = 0
-        @FetchRequest2 var result: Result<[Item], Error>
-        
+        var _result: FetchRequest2<Item>
+        var result: Result<[Item], Error> {
+            _result.wrappedValue
+        }
         init(sortDescriptors: Binding<[SortDescriptor<Item>]>) {
             _sortDescriptors = sortDescriptors
             _result = FetchRequest2(sortDescriptors: sortDescriptors.wrappedValue)
@@ -78,7 +80,7 @@ struct FetchViewRedesign: View {
                     }
                     
                     Table(items, sortOrder: $sortDescriptors) {
-                        TableColumn("timestamp", value: \.timestamp) { item in
+                        TableColumn(LocalizedStringKey("timestamp"), value: \.timestamp) { item in
                             ItemRow(item: item)
                         }
                     }

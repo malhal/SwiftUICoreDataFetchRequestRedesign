@@ -26,6 +26,10 @@ struct FetchViewOriginal: View {
         [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
     }
     
+    var fetchRequest: FetchRequest<Item> {
+        FetchRequest(sortDescriptors: sortDescriptors)
+    }
+    
     var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
         Binding {
             sortDescriptors
@@ -64,7 +68,7 @@ struct FetchViewOriginal: View {
                 counter2 += 1
             }
             
-            FetchedResultsView(request: FetchRequest(sortDescriptors: sortDescriptors)) { results in
+            FetchedResultsView(results: fetchRequest) { results in
                 Table(results, sortOrder: sortDescriptorsBinding) {
                     //    List(results) { item in
                     TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
@@ -86,12 +90,8 @@ struct FetchViewOriginal: View {
     }
     
     struct FetchedResultsView<Content, Result>: View where Content: View, Result: NSFetchRequestResult {
-        let request: FetchRequest<Result>
+        @FetchRequest var results: FetchedResults<Result>
         @ViewBuilder let content: (FetchedResults<Result>) -> Content
-        
-        var results: FetchedResults<Result> {
-            request.wrappedValue
-        }
         
         var body: some View {
             content(results)

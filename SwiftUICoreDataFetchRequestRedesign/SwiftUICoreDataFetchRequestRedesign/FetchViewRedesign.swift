@@ -22,6 +22,10 @@ struct FetchViewRedesign: View {
         [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
     }
     
+    var fetchRequest2: FetchRequest2<Item> {
+        FetchRequest2(sortDescriptors: sortDescriptors)
+    }
+    
     // gets the sort descriptor directly from the fetch.
     // transforms from the sort descriptors set by the table to the ascending state bool.
     var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
@@ -35,22 +39,15 @@ struct FetchViewRedesign: View {
     
     var body: some View {
         VStack {
-            FetchView(sortDescriptors: sortDescriptorsBinding)
+            FetchView(result: fetchRequest2, sortDescriptors: sortDescriptorsBinding)
         }
     }
     
     struct FetchView: View {
         @Environment(\.managedObjectContext) var viewContext
-        @Binding var sortDescriptors: [SortDescriptor<Item>]
         @State var counter2 = 0
-        var _result: FetchRequest2<Item>
-        var result: Result<[Item], Error> {
-            _result.wrappedValue
-        }
-        init(sortDescriptors: Binding<[SortDescriptor<Item>]>) {
-            _sortDescriptors = sortDescriptors
-            _result = FetchRequest2(sortDescriptors: sortDescriptors.wrappedValue)
-        }
+        @FetchRequest2 var result: Result<[Item], Error>
+        @Binding var sortDescriptors: [SortDescriptor<Item>]
         
         struct ItemRow: View {
             @ObservedObject var item: Item

@@ -20,13 +20,13 @@ struct FetchRequest2<ResultType>: @preconcurrency DynamicProperty where ResultTy
     private let configurator: Configurator
     private let changesAnimation: Animation
     
-    init(sortDescriptors: [SortDescriptor<ResultType>] = [], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
+    init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
         let nsSortDescriptors = sortDescriptors.map(NSSortDescriptor.init)
         self.configurator = .components(nsSortDescriptors: nsSortDescriptors, predicate: nsPredicate)
         self.changesAnimation = changesAnimation
     }
     
-    init(nsSortDescriptors: [NSSortDescriptor] = [], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
+    init(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
         self.configurator = .components(nsSortDescriptors: nsSortDescriptors, predicate: nsPredicate)
         self.changesAnimation = changesAnimation
     }

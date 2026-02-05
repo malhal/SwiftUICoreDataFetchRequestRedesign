@@ -58,6 +58,7 @@ struct FetchViewRedesign: View {
         }
         
         var body: some View {
+            let _ = print(Self._printChanges())
             switch(result) {
                 case let .failure(error):
                     Text(error.localizedDescription)

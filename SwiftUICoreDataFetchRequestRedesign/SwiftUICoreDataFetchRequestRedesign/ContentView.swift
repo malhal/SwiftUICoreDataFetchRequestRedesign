@@ -12,7 +12,7 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     
     @State var counter = 0
-    
+    @State var context2 = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
     var body: some View {
         HStack {
             VStack {
@@ -32,6 +32,7 @@ struct ContentView: View {
             VStack {
                 Text("FetchViewRedesign")
                 FetchViewRedesign(counter: counter)
+                    .environment(\.managedObjectContext, counter == 0 ? viewContext : context2)
             }
         }
         .toolbar {

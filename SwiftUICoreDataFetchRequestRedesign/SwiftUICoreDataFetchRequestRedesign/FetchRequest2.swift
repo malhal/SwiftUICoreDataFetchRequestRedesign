@@ -12,143 +12,198 @@ import CoreData
 
 @MainActor
 @propertyWrapper
-struct FetchRequest2<ResultType>: @preconcurrency DynamicProperty where ResultType: NSManagedObject {
+struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
     
-    @Environment(\.managedObjectContext) private var context
+    @Environment(\.managedObjectContext) private var managedObjectContext
     @StateObject private var coordinator = Coordinator()
     
-    private let configurator: Configurator
-    private let changesAnimation: Animation
+    let changesAnimation: Animation
+    let config: Config
+
+    enum Config: Equatable {
+        func isCompatible(with old: Config) -> Bool {
+            switch (old, self) {
+                case (.basic, .basic):
+                    // Hardware is always compatible when staying in Basic mode
+                    return true
+                    
+                case (.rawRequest(let oldReq), .rawRequest(let newReq)):
+                    // Hardware is only compatible if the FetchRequest object is the same instance
+                    return oldReq === newReq
+                    
+                default:
+                    // Mode swapped (Basic <-> Raw), hardware is incompatible
+                    return false
+            }
+        }
+        
+        func resolveFetchRequest() -> NSFetchRequest<ResultType> {
+            switch self {
+                case .rawRequest(let req):
+                    return req
+                case .basic(let req):
+                    let fr = NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
+                    fr.sortDescriptors = req.resolveNSSortDescriptors()
+                    fr.predicate = req.nsPredicate
+                    return fr
+            }
+        }
+        
+        func apply(to request: NSFetchRequest<ResultType>) {
+            switch self {
+                case .basic(let basic):
+                    request.predicate = basic.nsPredicate
+                    request.sortDescriptors = basic.resolveNSSortDescriptors()
+                case .rawRequest(_):
+                    // We only get here if the instance is the same (isCompatible check),
+                    // so there is typically nothing to sync for raw requests.
+                    break
+            }
+        }
+        
+        struct Basic: Equatable {
+            let nsPredicate: NSPredicate?
+            let sortType: SortType
+            
+            // This enum lets us compare modern vs legacy intents
+            enum SortType: Equatable {
+                case modern([SortDescriptor<ResultType>])
+                case legacy([NSSortDescriptor])
+            }
+            
+            // Helper to get NSSortDescriptors regardless of which type was provided
+            func resolveNSSortDescriptors() -> [NSSortDescriptor] {
+                switch sortType {
+                    case .modern(let modern):
+                        // Convert Swift SortDescriptors to legacy for the FRC
+                        return modern.map { NSSortDescriptor($0) }
+                    case .legacy(let legacy):
+                        return legacy
+                }
+            }
+        }
+        
+        case rawRequest(NSFetchRequest<ResultType>)
+        case basic(Basic)
+    }
+    
     
     init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
-        let nsSortDescriptors = sortDescriptors.map(NSSortDescriptor.init)
-        self.configurator = .components(nsSortDescriptors: nsSortDescriptors, predicate: nsPredicate)
+        let basic = Config.Basic(nsPredicate: nsPredicate, sortType: .modern(sortDescriptors))
+        config = Config.basic(basic)
         self.changesAnimation = changesAnimation
     }
     
     init(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, changesAnimation: Animation = .default) {
-        self.configurator = .components(nsSortDescriptors: nsSortDescriptors, predicate: nsPredicate)
+        let basic = Config.Basic(nsPredicate: nsPredicate, sortType: .legacy(nsSortDescriptors))
+        self.config = Config.basic(basic)
         self.changesAnimation = changesAnimation
     }
     
     init(fetchRequest: NSFetchRequest<ResultType>, changesAnimation: Animation = .default) {
-        self.configurator = .request(fetchRequest)
+        self.config = Config.rawRequest(fetchRequest)
         self.changesAnimation = changesAnimation
     }
     
-    var wrappedValue: Result<[ResultType], Error> = .success([])
-    
-    mutating func update() {
-        
-        coordinator.animation = changesAnimation
-        
-        let fr = coordinator.fetchedResultsController?.fetchRequest ?? NSFetchRequest<ResultType>(entityName: "\(ResultType.self)")
-        
-        var fetchNeeded = configurator.configure(fetchRequest: fr)
-        
-        let frc: NSFetchedResultsController<ResultType>
-        if let existingFRC = coordinator.fetchedResultsController, context == existingFRC.managedObjectContext {
-            frc = existingFRC
-        } else {
-            frc = NSFetchedResultsController<ResultType>(fetchRequest: fr, managedObjectContext: context, sectionNameKeyPath: nil, cacheName: nil)
-            coordinator.fetchedResultsController = frc
-            fetchNeeded = true
-        }
-        
-        wrappedValue = Result {
-            if fetchNeeded {
-                try frc.performFetch()
-            }
-            return frc.fetchedObjects ?? []
-        }
-    }
-    
-    
-    enum Configurator {
-        case components(nsSortDescriptors: [NSSortDescriptor], predicate: NSPredicate?)
-        case request(NSFetchRequest<ResultType>)
-        
-        func configure(fetchRequest fr: NSFetchRequest<ResultType>) -> Bool {
-            var changed = false
-            
-            func assignIfDifferent<T: Equatable>(_ keyPath: ReferenceWritableKeyPath<NSFetchRequest<ResultType>, T>,
-                                                 _ newValue: T) {
-                if fr[keyPath: keyPath] != newValue {
-                    fr[keyPath: keyPath] = newValue
-                    changed = true
-                }
-            }
-            
-            func assignIfDifferentOptional<T: Equatable>(_ keyPath: ReferenceWritableKeyPath<NSFetchRequest<ResultType>, T?>,
-                                                         _ newValue: T?) {
-                if fr[keyPath: keyPath] != newValue {
-                    fr[keyPath: keyPath] = newValue
-                    changed = true
-                }
-            }
-            
-            switch self {
-                case .components(let nsSortDescriptors, let predicate):
-                    assignIfDifferent(\.sortDescriptors, nsSortDescriptors)
-                    assignIfDifferent(\.predicate, predicate)
-                    
-                case .request(let newRequest):
-                    // Core fetch properties
-                    assignIfDifferentOptional(\.sortDescriptors, newRequest.sortDescriptors)
-                    assignIfDifferentOptional(\.predicate, newRequest.predicate)
-                    assignIfDifferent(\.fetchLimit, newRequest.fetchLimit)
-                    assignIfDifferent(\.fetchOffset, newRequest.fetchOffset)
-                    assignIfDifferent(\.fetchBatchSize, newRequest.fetchBatchSize)
-                    
-                    // Boolean flags
-                    assignIfDifferent(\.includesSubentities, newRequest.includesSubentities)
-                    assignIfDifferent(\.includesPendingChanges, newRequest.includesPendingChanges)
-                    assignIfDifferent(\.returnsObjectsAsFaults, newRequest.returnsObjectsAsFaults)
-                    assignIfDifferent(\.includesPropertyValues, newRequest.includesPropertyValues)
-                    assignIfDifferent(\.shouldRefreshRefetchedObjects, newRequest.shouldRefreshRefetchedObjects)
-                    
-                    // propertiesToFetch: NSArray compare
-                    if let lhs = fr.propertiesToFetch as? NSArray,
-                       let rhs = newRequest.propertiesToFetch as? NSArray {
-                        if !lhs.isEqual(to: rhs as! [Any]) {
-                            fr.propertiesToFetch = newRequest.propertiesToFetch
-                            changed = true
-                        }
-                    } else if (fr.propertiesToFetch != nil) || (newRequest.propertiesToFetch != nil) {
-                        fr.propertiesToFetch = newRequest.propertiesToFetch
-                        changed = true
-                    }
-                    
-                    // Data result options
-                    assignIfDifferent(\.resultType, newRequest.resultType)
-                    assignIfDifferent(\.returnsDistinctResults, newRequest.returnsDistinctResults)
-                    
-                    // Advanced options
-                    assignIfDifferentOptional(\.affectedStores, newRequest.affectedStores)
-                    assignIfDifferentOptional(\.relationshipKeyPathsForPrefetching, newRequest.relationshipKeyPathsForPrefetching)
-            }
-            return changed
-        }
+    var wrappedValue: Result<[ResultType], Error> {
+        coordinator.managedObjectContext = managedObjectContext
+        coordinator.changesAnimation = changesAnimation
+        coordinator.config = config
+        return coordinator.result
     }
     
     @MainActor
     class Coordinator: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject {
         
-        var animation: Animation?
+        var changesAnimation: Animation!
         
-        var fetchedResultsController: NSFetchedResultsController<ResultType>? {
+        var managedObjectContext: NSManagedObjectContext! {
             didSet {
-                oldValue?.delegate = nil
-                fetchedResultsController?.delegate = self
+                _fetchedResultsController = nil
             }
         }
         
-        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
-            if type != .update {
-                withAnimation(animation) {
-                    objectWillChange.send()
+        var config: Config! {
+            didSet {
+                if let prev = oldValue,
+                   let frc = _fetchedResultsController {
+                    if config.isCompatible(with: prev) {
+                        config.apply(to: frc.fetchRequest)
+                        _result = nil
+                    }
+                    else {
+                        _fetchedResultsController = nil
+                    }
                 }
             }
-        }   
+        }
+        
+        private var _fetchedResultsController: NSFetchedResultsController<ResultType>! {
+            didSet {
+                oldValue?.delegate = nil
+                _fetchedResultsController?.delegate = self
+                _result = nil
+            }
+        }
+        
+        var fetchedResultsController: NSFetchedResultsController<ResultType> {
+            if _fetchedResultsController == nil {
+                let fr = config.resolveFetchRequest()
+                _fetchedResultsController = NSFetchedResultsController(
+                    fetchRequest: fr,
+                    managedObjectContext: managedObjectContext,
+                    sectionNameKeyPath: nil,
+                    cacheName: nil
+                )
+            }
+            return _fetchedResultsController
+        }
+        
+        private var _result: Result<[ResultType], Error>!
+        var result: Result<[ResultType], Error> {
+            if _result == nil {
+                _result = Result {
+                    try fetchedResultsController.performFetch()
+                    return fetchedResultsController.fetchedObjects ?? []
+                }
+            }
+            return _result
+        }
+        
+        private var hasStructuralChanges = false
+        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
+                        didChange anObject: Any,
+                        at indexPath: IndexPath?,
+                        for type: NSFetchedResultsChangeType,
+                        newIndexPath: IndexPath?) {
+            
+            // We only care about moves, inserts, and deletes.
+            // If it's just an .update, we leave hasStructuralChanges as false.
+            
+            // We explicitly ignore '.update' events to prevent unnecessary invalidation of the entire collection.
+            // Following the 'Granular Observation' pattern:
+            // 1. This Wrapper manages the IDENTITY and ORDER of the list (Structural Changes).
+            // 2. Individual Row Views should use @ObservedObject to monitor property changes.
+            // This prevents a single property update in one row from re-calculating the body of the entire list.
+            
+            if type != .update {
+                hasStructuralChanges = true
+            }
+        }
+        
+        func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
+            // 1. If no structural changes happened, we stay silent.
+            // The child views will handle their own @ObservedObject updates.
+            guard hasStructuralChanges else { return }
+            
+            // 2. Prepare for the next transaction
+            hasStructuralChanges = false
+            
+            withAnimation(changesAnimation) {
+                objectWillChange.send()
+                _result = .success(controller.fetchedObjects as? [ResultType] ?? [])
+            }
+        }
+        
     }
 }

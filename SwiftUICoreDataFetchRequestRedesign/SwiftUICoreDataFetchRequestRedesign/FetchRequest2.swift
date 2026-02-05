@@ -119,20 +119,23 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
         
         var managedObjectContext: NSManagedObjectContext! {
             didSet {
-                _fetchedResultsController = nil
+                if managedObjectContext != oldValue {
+                    _fetchedResultsController = nil
+                }
             }
         }
         
         var config: Config! {
             didSet {
-                if let prev = oldValue,
-                   let frc = _fetchedResultsController {
-                    if config.isCompatible(with: prev) {
-                        config.apply(to: frc.fetchRequest)
-                        _result = nil
-                    }
-                    else {
-                        _fetchedResultsController = nil
+                if config != oldValue {
+                    if let frc = _fetchedResultsController {
+                        if config.isCompatible(with: oldValue) {
+                            config.apply(to: frc.fetchRequest)
+                            _result = nil
+                        }
+                        else {
+                            _fetchedResultsController = nil
+                        }
                     }
                 }
             }

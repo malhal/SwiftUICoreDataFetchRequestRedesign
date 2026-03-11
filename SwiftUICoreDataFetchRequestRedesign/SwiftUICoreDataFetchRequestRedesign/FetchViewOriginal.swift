@@ -8,13 +8,59 @@
 import SwiftUI
 import CoreData
 
+
+class MyFetch: ObservableObject {
+    var request = { let fr = Item.fetchRequest()
+        fr.sortDescriptors = []
+        return fr
+    }()
+    
+    init() {
+        observation = request.observe(\.predicate, options: [.old, .new]) { request, change in
+            if let newPredicate = change.newValue {
+                print("Surgical Alert: Predicate changed to: \(newPredicate?.predicateFormat ?? "nil")")
+            } else {
+                print("Predicate was cleared.")
+            }
+        }
+    }
+    
+    var observation: NSKeyValueObservation?
+    
+    // it is diffing because if i set the predicate to the same predicate then fetch doesnt happen
+    
+    var ascending = true {
+        didSet {
+            request.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: ascending)]
+           // if !ascending {
+//                let oldRequest = request.copy() as! NSFetchRequest<Item>
+//                if oldRequest == request {
+//                    print("Malc")
+//                }
+//                let fr = Item.fetchRequest()
+//                fr.sortDescriptors = []
+                
+             //   request.predicate = NSPredicate(format: "timestamp < %@", argumentArray: [Date.now])
+              //  if oldRequest == request {
+              //      print("Malc")
+              //  }
+                
+                
+                //fetchRequest = fr
+            //}
+        }
+    }
+}
+
 struct FetchViewOriginal: View {
     
     // for testing body recomputation
     let counter: Int
     
     // source of truth for the sort
-    @State private var ascending = true
+    //@State private var ascending = true
+    @StateObject var myFetch = MyFetch()
+    
     
     @Environment(\.managedObjectContext) private var viewContext
     
@@ -23,18 +69,22 @@ struct FetchViewOriginal: View {
 //    @FetchRequest(sortDescriptors: []) var items: FetchedResults<Item>
   
     var sortDescriptors: [SortDescriptor<Item>] {
-        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+        [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
     }
     
-    var fetchRequest: FetchRequest<Item> {
-        FetchRequest(sortDescriptors: sortDescriptors)
+//    var fetchRequest: FetchRequest<Item> {
+//        FetchRequest(sortDescriptors: sortDescriptors)
+//    }
+    
+    var fetchRequest2: FetchRequest<Item> {
+        FetchRequest(fetchRequest: myFetch.request)
     }
     
     var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
         Binding {
             sortDescriptors
         } set: { v in
-            ascending = v.first?.order == .forward
+            myFetch.ascending = v.first?.order == .forward
         }
     }
     
@@ -68,7 +118,7 @@ struct FetchViewOriginal: View {
                 counter2 += 1
             }
             
-            FetchedResultsView(results: fetchRequest) { results in
+            FetchedResultsView(results: fetchRequest2) { results in
                 Table(results, sortOrder: sortDescriptorsBinding) {
                     //    List(results) { item in
                     TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in

@@ -50,7 +50,7 @@ struct ContentView: View {
     }
 
     private func addItem() {
-        withAnimation {
+        //withAnimation {
             let newItem = Item(context: viewContext)
             newItem.timestamp = Date()
 
@@ -62,7 +62,7 @@ struct ContentView: View {
                 let nsError = error as NSError
                 fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
             }
-        }
+        //}
     }
 }
 

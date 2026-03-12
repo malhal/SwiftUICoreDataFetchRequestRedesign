@@ -12,27 +12,27 @@ struct FetchViewRedesign: View {
     @Environment(\.managedObjectContext) var viewContext
     
     //@State private var nsSortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
-    @State private var ascending: Bool = true
+    //@State private var ascending: Bool = true
     
-    @State private var sortDescriptors: [SortDescriptor<Item>] = []
-    static var falsePredicate = NSPredicate(value: false)
+    //@State private var sortDescriptors: [SortDescriptor<Item>] = []
+    //static var falsePredicate = NSPredicate(value: false)
     
-    @State private var predicate: NSPredicate? = Self.falsePredicate
+    //@State private var predicate: NSPredicate? = Self.falsePredicate
     // source of truth for the sort can easily be persisted
    // @AppStorage("Ascending") private var ascendingStored = true
     
     // for testing body recomputation
     let counter: Int
     
-//    var sortDescriptors: [SortDescriptor<Item>] {
-//        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
-//    }
+    var sortDescriptors: [SortDescriptor<Item>] {
+        [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
+    }
     
-    @StateObject var myFetch = MyFetch()
+    @State var myFetch = MyFetch()
     
     var fetchRequest2: FetchRequest2<Item> {
        // FetchRequest2(sortDescriptors: sortDescriptors, nsPredicate: predicate)
-        FetchRequest2(fetchRequest: myFetch.request)
+        FetchRequest2(fetchRequest: myFetch.request, changesAnimation: .default)
     }
     
     // gets the sort descriptor directly from the fetch.
@@ -41,8 +41,8 @@ struct FetchViewRedesign: View {
         Binding {
             sortDescriptors
         } set: { v in
-            ascending = v.first?.order == .forward
-            sortDescriptors = v
+            myFetch.ascending = v.first?.order == .forward
+            //sortDescriptors = v
         }
     }
     
@@ -77,8 +77,8 @@ struct FetchViewRedesign: View {
             }
         }
         .onAppear {
-            sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
-            predicate = nil
+           // sortDescriptors = [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
+           // predicate = nil
         }
     }
     
@@ -89,11 +89,6 @@ struct FetchViewRedesign: View {
             Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
         }
     }
-    
-    
-    
-    
-    
     
     //        var body: some View {
     //            let _ = print(Self._printChanges())

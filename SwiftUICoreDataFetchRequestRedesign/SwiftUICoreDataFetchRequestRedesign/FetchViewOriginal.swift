@@ -9,23 +9,24 @@ import SwiftUI
 import CoreData
 
 
-class MyFetch: ObservableObject {
+//class MyFetch: ObservableObject {
+struct MyFetch {
     var request = { let fr = Item.fetchRequest()
         fr.sortDescriptors = []
         return fr
     }()
     
-    init() {
-        observation = request.observe(\.predicate, options: [.old, .new]) { request, change in
-            if let newPredicate = change.newValue {
-                print("Surgical Alert: Predicate changed to: \(newPredicate?.predicateFormat ?? "nil")")
-            } else {
-                print("Predicate was cleared.")
-            }
-        }
-    }
-    
-    var observation: NSKeyValueObservation?
+//    init() {
+//        observation = request.observe(\.predicate, options: [.old, .new]) { request, change in
+//            if let newPredicate = change.newValue {
+//                print("Surgical Alert: Predicate changed to: \(newPredicate?.predicateFormat ?? "nil")")
+//            } else {
+//                print("Predicate was cleared.")
+//            }
+//        }
+//    }
+//    
+//    var observation: NSKeyValueObservation?
     
     // it is diffing because if i set the predicate to the same predicate then fetch doesnt happen
     
@@ -58,8 +59,8 @@ struct FetchViewOriginal: View {
     let counter: Int
     
     // source of truth for the sort
-    //@State private var ascending = true
-    @StateObject var myFetch = MyFetch()
+    @State private var ascending = true
+    //@State var myFetch = MyFetch()
     
     
     @Environment(\.managedObjectContext) private var viewContext
@@ -68,26 +69,25 @@ struct FetchViewOriginal: View {
     // we cannot use the value of ascending in this decleration to set the correct sort.
 //    @FetchRequest(sortDescriptors: []) var items: FetchedResults<Item>
   
-    var sortDescriptors: [SortDescriptor<Item>] {
-        [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
-    }
-    
+//    var sortDescriptors: [SortDescriptor<Item>] {
+//        [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
+//    }
+//    
+//    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
+//        Binding {
+//            sortDescriptors
+//        } set: { v in
+//            myFetch.ascending = v.first?.order == .forward
+//        }
+//    }
+//    
+//    
 //    var fetchRequest: FetchRequest<Item> {
-//        FetchRequest(sortDescriptors: sortDescriptors)
+//        //FetchRequest(sortDescriptors: sortDescriptors)
+//        FetchRequest(fetchRequest: myFetch.request, animation: .default)
 //    }
     
-    var fetchRequest2: FetchRequest<Item> {
-        FetchRequest(fetchRequest: myFetch.request)
-    }
-    
-    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
-        Binding {
-            sortDescriptors
-        } set: { v in
-            myFetch.ascending = v.first?.order == .forward
-        }
-    }
-    
+
     @State private var counter2 = 0
     
     var body: some View {
@@ -118,33 +118,55 @@ struct FetchViewOriginal: View {
                 counter2 += 1
             }
             
-            FetchedResultsView(results: fetchRequest2) { results in
-                Table(results, sortOrder: sortDescriptorsBinding) {
-                    //    List(results) { item in
-                    TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
-                        //       NavigationLink {
-                        //                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
-                        //                            .toolbar {
-                        //                                Button("Delete") {
-                        //                                    viewContext.delete(item)
-                        //                                }
-                        //                            }
-                        //                        } label: {
-                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
-                        //                        }
-                        
-                    }
-                }
-            }
+            FetchedTable(ascending: $ascending)
         }
     }
+  
+
     
-    struct FetchedResultsView<Content, Result>: View where Content: View, Result: NSFetchRequestResult {
-        @FetchRequest var results: FetchedResults<Result>
-        @ViewBuilder let content: (FetchedResults<Result>) -> Content
-        
-        var body: some View {
-            content(results)
+//    struct FetchedResultsView<Content, Result>: View where Content: View, Result: NSFetchRequestResult {
+//        @FetchRequest var results: FetchedResults<Result>
+//        @ViewBuilder let content: (FetchedResults<Result>) -> Content
+//        
+//        var body: some View {
+//            content(results)
+//        }
+//    }
+}
+
+extension FetchedTable {
+    init(ascending: Binding<Bool>) {
+        let sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending.wrappedValue ? .forward : .reverse)]
+        let fetch = FetchRequest(sortDescriptors: sortDescriptors)
+        let sortDescriptorsBinding = Binding {
+            sortDescriptors
+        } set: { v in
+            ascending.wrappedValue = v.first?.order == .forward
+        }
+        self.init(items: fetch, sortDescriptors: sortDescriptorsBinding)
+    }
+}
+
+struct FetchedTable: View {
+    @FetchRequest var items: FetchedResults<Item>
+    @Binding var sortDescriptors: [SortDescriptor<Item>]
+    
+    var body: some View {
+        Table(items, sortOrder: $sortDescriptors) {
+            //    List(results) { item in
+            TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
+                //       NavigationLink {
+                //                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                //                            .toolbar {
+                //                                Button("Delete") {
+                //                                    viewContext.delete(item)
+                //                                }
+                //                            }
+                //                        } label: {
+                Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                //                        }
+                
+            }
         }
     }
 }

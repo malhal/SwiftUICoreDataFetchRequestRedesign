@@ -60,29 +60,36 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
         
         private var changesAnimation: Animation?
         
-        lazy var fetchRequest: NSFetchRequest<ResultType> = {
+        lazy var convenienceFetchRequest: NSFetchRequest<ResultType> = {
             NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
         }()
         
-        private var sortDescriptors: [SortDescriptor<ResultType>]?
+        // designed to prevent unnecessary converts to NSSortDescriptor
+        private var cachedSortDescriptors: [SortDescriptor<ResultType>]?
         
         func result(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) throws -> [ResultType] {
-            if self.sortDescriptors != sortDescriptors {
-                fetchRequest.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
+            if cachedSortDescriptors != sortDescriptors {
+                convenienceFetchRequest.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
+                cachedSortDescriptors = sortDescriptors
             }
-            fetchRequest.predicate = nsPredicate
-            return try result(fetchRequest: fetchRequest, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
+            convenienceFetchRequest.predicate = nsPredicate
+            return try result(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
         }
         
         func result(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) throws -> [ResultType] {
-            fetchRequest.sortDescriptors = nsSortDescriptors
-            fetchRequest.predicate = nsPredicate
-            return try result(fetchRequest: fetchRequest, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
+            convenienceFetchRequest.sortDescriptors = nsSortDescriptors
+            convenienceFetchRequest.predicate = nsPredicate
+            // clear in case they had previously been used
+            cachedSortDescriptors = nil
+            return try result(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
         }
         
         private var fetchedResultsController: NSFetchedResultsController<ResultType>?
         
         func result(fetchRequest: NSFetchRequest<ResultType>, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) throws -> [ResultType] {
+            
+            self.changesAnimation = changesAnimation
+            
             if fetchedResultsController?.managedObjectContext != managedObjectContext {
                 fetchedResultsController = nil
             }
@@ -92,8 +99,10 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
             }
             
             if fetchedResultsController == nil {
+                // we copy the request so we can compare agains the updated convenienceFetchRequest next time.
+                let fr = fetchRequest.copy() as! NSFetchRequest<ResultType>
                 let frc = NSFetchedResultsController<ResultType>(
-                    fetchRequest: fetchRequest.copy() as! NSFetchRequest,
+                    fetchRequest: fr,
                     managedObjectContext: managedObjectContext,
                     sectionNameKeyPath: nil,
                     cacheName: nil
@@ -103,6 +112,7 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
                 try frc.performFetch()
                 fetchedResultsController = frc
             }
+            
             return fetchedResultsController?.fetchedObjects ?? []
         }
         

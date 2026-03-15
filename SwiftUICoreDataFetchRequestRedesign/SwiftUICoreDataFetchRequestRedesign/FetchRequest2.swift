@@ -1,21 +1,16 @@
-//
-//  FetchRequest2.swift
-//  SwiftUICoreDataFetchRequestRedesign
-//
-//  Created by Malcolm Hall on 12/11/2024.
-//
+
 
 import SwiftUI
 import CoreData
 
 @propertyWrapper
-struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
+struct FetchRequest3<ResultType>: DynamicProperty where ResultType: NSManagedObject {
     
     @Environment(\.managedObjectContext) private var managedObjectContext
-    @StateObject private var coordinator = Coordinator()
+    @StateObject private var controller = FetchController3<ResultType>()
     
     private let config: FetchConfig
-    let changesAnimation: Animation?
+    private let changesAnimation: Animation?
     
     // Internal representation to avoid 'if let' branching in wrappedValue
     private enum FetchConfig {
@@ -42,114 +37,198 @@ struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObj
         self.changesAnimation = changesAnimation
     }
     
-    var wrappedValue: Result<[ResultType], Error> {
-        Result {
-            switch config {
-                case .manual(let request):
-                    return try coordinator.result(fetchRequest: request, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
-                case .modern(let sort, let predicate):
-                    return try coordinator.result(sortDescriptors: sort, nsPredicate: predicate, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
-                case .legacy(let sort, let predicate):
-                    return try coordinator.result(nsSortDescriptors: sort, nsPredicate: predicate, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
-            }
+    var wrappedValue: FetchResult<ResultType> {
+        controller.result
+    }
+    
+    func update() {
+        controller.disablePublishing = true
+        switch config {
+            case .manual(let request):
+                controller.fetchRequest = request
+            case .modern(let sort, let predicate):
+                controller.sortDescriptors = sort
+                controller.nsPredicate = predicate
+            case .legacy(let sort, let predicate):
+                controller.nsSortDescriptors = sort
+                controller.nsPredicate = predicate
+        }
+        controller.managedObjectContext = managedObjectContext
+        controller.changesAnimation = changesAnimation
+        controller.disablePublishing = false
+    }
+}
+
+enum FetchError: LocalizedError {
+    case missingContext
+    case fetchFailure(Error)
+    
+    var errorDescription: String? {
+        switch self {
+            case .missingContext:
+                return "The operation couldn't be completed because the managedObjectContext is null."
+            case .fetchFailure(let error):
+                return error.localizedDescription
+        }
+    }
+}
+
+@MainActor
+public class FetchController3<ResultType>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject where ResultType: NSManagedObject {
+    
+    public var changesAnimation: Animation?
+    private var fetchedResultsController: NSFetchedResultsController<ResultType>? {
+        didSet {
+            oldValue?.delegate = nil
+            fetchedResultsController?.delegate = self
         }
     }
     
-    @MainActor
-    class Coordinator: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject {
+    private let convenienceFetchRequest: NSFetchRequest<ResultType> = NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
+    
+    private var _result = FetchResult<ResultType>()
+    public var result: FetchResult<ResultType> {
         
-        private var changesAnimation: Animation?
-        
-        lazy var convenienceFetchRequest: NSFetchRequest<ResultType> = {
-            NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
-        }()
-        
-        // designed to prevent unnecessary converts to NSSortDescriptor
-        private var cachedSortDescriptors: [SortDescriptor<ResultType>]?
-        
-        func result(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) throws -> [ResultType] {
-            if cachedSortDescriptors != sortDescriptors {
-                convenienceFetchRequest.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
-                cachedSortDescriptors = sortDescriptors
-            }
-            convenienceFetchRequest.predicate = nsPredicate
-            return try result(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
+        // get the fetch request we are using
+        let fr: NSFetchRequest<ResultType>
+        if let fetchRequest {
+            fr = fetchRequest
+        }
+        else {
+            fr = convenienceFetchRequest
         }
         
-        func result(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) throws -> [ResultType] {
-            convenienceFetchRequest.sortDescriptors = nsSortDescriptors
-            convenienceFetchRequest.predicate = nsPredicate
-            // clear in case they had previously been used
-            cachedSortDescriptors = nil
-            return try result(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext, changesAnimation: changesAnimation)
+        // check if anything has changed requiring a new frc
+        if let frc = fetchedResultsController {
+            if frc.managedObjectContext != managedObjectContext {
+                fetchedResultsController = nil
+            }
+            if frc.fetchRequest != fr {
+                fetchedResultsController = nil
+            }
         }
-        
-        private var fetchedResultsController: NSFetchedResultsController<ResultType>?
-        
-        func result(fetchRequest: NSFetchRequest<ResultType>, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) throws -> [ResultType] {
-            
-            self.changesAnimation = changesAnimation
-            
-            if fetchedResultsController?.managedObjectContext != managedObjectContext {
-                fetchedResultsController = nil
-            }
-            
-            if fetchedResultsController?.fetchRequest != fetchRequest {
-                fetchedResultsController = nil
-            }
-            
-            if fetchedResultsController == nil {
+
+        // make new frc if necessary
+        if fetchedResultsController == nil {
+            if let managedObjectContext {
                 // we copy the request so we can compare agains the updated convenienceFetchRequest next time.
-                let fr = fetchRequest.copy() as! NSFetchRequest<ResultType>
                 let frc = NSFetchedResultsController<ResultType>(
-                    fetchRequest: fr,
+                    fetchRequest: fr.copy() as! NSFetchRequest<ResultType>,
                     managedObjectContext: managedObjectContext,
                     sectionNameKeyPath: nil,
                     cacheName: nil
                 )
-                
-                frc.delegate = self
-                try frc.performFetch()
                 fetchedResultsController = frc
-            }
-            
-            return fetchedResultsController?.fetchedObjects ?? []
-        }
-        
-        private var hasStructuralChanges = false
-        
-        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
-                        didChange anObject: Any,
-                        at indexPath: IndexPath?,
-                        for type: NSFetchedResultsChangeType,
-                        newIndexPath: IndexPath?) {
-            
-            // We only care about moves, inserts, and deletes.
-            // If it's just an .update, we leave hasStructuralChanges as false.
-            
-            // We explicitly ignore '.update' events to prevent unnecessary invalidation of the entire collection.
-            // Following the 'Granular Observation' pattern:
-            // 1. This Wrapper manages the IDENTITY and ORDER of the list (Structural Changes).
-            // 2. Individual Row Views should use @ObservedObject to monitor property changes.
-            // This prevents a single property update in one row from re-calculating the body of the entire list.
-            
-            if type != .update {
-                hasStructuralChanges = true
+                
+                do {
+                    try frc.performFetch()
+                    _result.error = nil
+                    _result.objects = frc.fetchedObjects ?? []
+                }
+                catch {
+                    _result.error = FetchError.fetchFailure(error) // and keep old objects
+                }
+            } else {
+                _result.error = FetchError.missingContext
             }
         }
-        
-        func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
-            // 1. If no structural changes happened, we stay silent.
-            // The child views will handle their own @ObservedObject updates.
-            guard hasStructuralChanges else { return }
-            
-            // 2. Prepare for the next transaction
-            hasStructuralChanges = false
-            
-            withAnimation(changesAnimation) {
+        return _result
+    }
+    
+    
+    init(nsSortDescriptors: [NSSortDescriptor] = [], nsPredicate: NSPredicate? = nil) {
+        super.init()
+        self.nsPredicate = nsPredicate
+        self.nsSortDescriptors = nsSortDescriptors
+    }
+    
+    var nsPredicate: NSPredicate? {
+        set {
+            fetchRequest = nil
+            convenienceFetchRequest.predicate = newValue
+        }
+        get {
+            convenienceFetchRequest.predicate
+        }
+    }
+    
+    var nsSortDescriptors: [NSSortDescriptor]? {
+        set {
+            sortDescriptors = nil
+            convenienceFetchRequest.sortDescriptors = newValue
+        }
+        get {
+            convenienceFetchRequest.sortDescriptors
+        }
+    }
+    
+    var sortDescriptors: [SortDescriptor<ResultType>]? {
+        willSet {
+            fetchRequest = nil
+        }
+        didSet {
+            if sortDescriptors != oldValue {
+                convenienceFetchRequest.sortDescriptors = sortDescriptors?.map { NSSortDescriptor($0) }
+            }
+        }
+    }
+    
+    var disablePublishing = false
+    
+    var managedObjectContext: NSManagedObjectContext? {
+        willSet {
+            if !disablePublishing {
                 objectWillChange.send()
             }
         }
-        
     }
+    
+    var fetchRequest: NSFetchRequest<ResultType>? {
+        willSet {
+            if !disablePublishing {
+                objectWillChange.send()
+            }
+        }
+    }
+
+    private var hasStructuralChanges = false
+    
+    public func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
+                    didChange anObject: Any,
+                    at indexPath: IndexPath?,
+                    for type: NSFetchedResultsChangeType,
+                    newIndexPath: IndexPath?) {
+        
+        // We only care about moves, inserts, and deletes.
+        // If it's just an .update, we leave hasStructuralChanges as false.
+        
+        // We explicitly ignore '.update' events to prevent unnecessary invalidation of the entire collection.
+        // Following the 'Granular Observation' pattern:
+        // 1. This Wrapper manages the IDENTITY and ORDER of the list (Structural Changes).
+        // 2. Individual Row Views should use @ObservedObject to monitor property changes.
+        // This prevents a single property update in one row from re-calculating the body of the entire list.
+        
+        if type != .update {
+            hasStructuralChanges = true
+        }
+    }
+    
+    public func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
+        // 1. If no structural changes happened, we stay silent.
+        // The child views will handle their own @ObservedObject updates.
+        guard hasStructuralChanges else { return }
+        
+        // 2. Prepare for the next transaction
+        hasStructuralChanges = false
+        
+        guard let fetchedObjects = controller.fetchedObjects as? [ResultType] else { return }
+        
+        withAnimation(changesAnimation) {
+            if !disablePublishing { // bit of an odd case
+                objectWillChange.send()
+            }
+            _result.objects = fetchedObjects
+        }
+    }
+    
 }

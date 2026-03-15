@@ -11,13 +11,13 @@ import CoreData
 struct FetchViewRedesign: View {
     @Environment(\.managedObjectContext) var viewContext
     
-    //@State private var nsSortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
-    //@State private var ascending: Bool = true
-    
     //@State private var sortDescriptors: [SortDescriptor<Item>] = []
-    //static var falsePredicate = NSPredicate(value: false)
+    static var falsePredicate = NSPredicate(value: false)
+    //@State private var nsPredicate: NSPredicate? =
     
-    //@State private var predicate: NSPredicate? = Self.falsePredicate
+    @State private var ascending: Bool = true
+    //@State private var nsSortDescriptors: [NSSortDescriptor] = []
+    
     // source of truth for the sort can easily be persisted
    // @AppStorage("Ascending") private var ascendingStored = true
     
@@ -25,14 +25,16 @@ struct FetchViewRedesign: View {
     let counter: Int
     
     var sortDescriptors: [SortDescriptor<Item>] {
-        [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
+        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
     }
     
-    @State var myFetch = MyFetch()
+    //@State var myFetch = MyFetch()
+    @State var toggle = false
+    //@StateObject var fetchController = FetchController2<Item>(changesAnimation: .default)//sortDescriptors: [], nsPredicate: Self.falsePredicate)
     
-    var fetchRequest2: FetchRequest2<Item> {
-       // FetchRequest2(sortDescriptors: sortDescriptors, nsPredicate: predicate)
-        FetchRequest2(fetchRequest: myFetch.request, changesAnimation: .default)
+    
+    var fetchRequest: FetchRequest2<Item> {
+        FetchRequest2(sortDescriptors: sortDescriptors, changesAnimation: .default)
     }
     
     // gets the sort descriptor directly from the fetch.
@@ -41,44 +43,74 @@ struct FetchViewRedesign: View {
         Binding {
             sortDescriptors
         } set: { v in
-            myFetch.ascending = v.first?.order == .forward
-            //sortDescriptors = v
+            ascending = v.first?.order == .forward
         }
     }
     
+//    func updateNSSortDescriptors() {
+//        fetchController.nsSortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
+//    }
+    
+//    func updateController() {
+//        if fetchController.managedObjectContext != viewContext {
+//            fetchController.managedObjectContext = viewContext
+//        }
+//        
+//        if fetchController.nsSortDescriptors?.first?.ascending != ascending {
+//            fetchController.nsSortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
+//        }
+//    }
+    
     var body: some View {
+       // let _ = updateController()
+        //let _ = fetchController.update(nsSortDescriptors: nsSortDescriptors, nsPredicate: nsPredicate, managedObjectContext: viewContext)
         VStack {
-            FetchedResultsView(results: fetchRequest2) { result in
-                switch(result) {
-                    case let .failure(error):
-                        Text(error.localizedDescription)
-                    case let .success(items):
-                        HStack {
-//                            Button("Recompute \(counter2)") {
-//                                counter2 += 1 // calls body
-//
-//                            }
-                            Button("Update") {
-                                items.first?.timestamp = Date()
-                            }
-                            Button("Delete") {
-                                if let first = items.first {
-                                    viewContext.delete(first)
-                                }
-                            }
+            // let items = fetchController.fetchedObjects
+            FetchedResultsView(result: fetchRequest) { result in
+                let items = result.objects
+                //let items = fetchController.result.objects
+                //                switch(result) {
+                //                    case let .failure(error):
+                //                        Text(error.localizedDescription)
+                //                    case let .success(items):
+                HStack {
+                    //                            Button("Recompute \(counter2)") {
+                    //                                counter2 += 1 // calls body
+                    //
+                    //                            }
+                    Button("toggle \(toggle)") {
+                        toggle.toggle()
+                        if toggle {
+                            //fetchController.fetchRequest = myFetch.request
                         }
-                        
-                        Table(items, sortOrder: sortDescriptorsBinding) {
-                            TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
-                                ItemRow(item: item)
-                            }
+                    }
+                    Button("Update") {
+                        items.first?.timestamp = Date()
+                    }
+                    Button("Delete") {
+                        if let first = items.first {
+                            viewContext.delete(first)
                         }
+                    }
+                }
+                
+                Table(items, sortOrder: sortDescriptorsBinding) {
+                    TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
+                        ItemRow(item: item)
+                    }
                 }
             }
-        }
-        .onAppear {
-           // sortDescriptors = [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
-           // predicate = nil
+//            .onAppear {
+//                fetchController.nsPredicate = nil
+//                fetchController.managedObjectContext = viewContext
+//                updateNSSortDescriptors()
+//            }
+//            .onChange(of: viewContext) {
+//                fetchController.managedObjectContext = viewContext
+//            }
+//            .onChange(of: ascending) {
+//                updateNSSortDescriptors()
+//            }
         }
     }
     
@@ -107,15 +139,15 @@ struct FetchViewRedesign: View {
     //        }
     
     struct FetchedResultsView<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
-        @FetchRequest2 var results: Result<[ResultType], Error>
-        @ViewBuilder let content: (Result<[ResultType], Error>) -> Content
+        @FetchRequest2 var result: FetchResult<ResultType>
+        @ViewBuilder let content: (FetchResult<ResultType>) -> Content
         
         var body: some View {
-            content(results)
+            content(result)
         }
     }
 }
 
-#Preview {
-    FetchViewRedesign(counter: 0)
-}
+//#Preview {
+//    FetchViewRedesign(counter: 0)
+//}

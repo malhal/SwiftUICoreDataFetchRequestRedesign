@@ -1,5 +1,5 @@
 //
-//  FetchRequest2.swift
+//  FetchRequest3.swift
 //  SwiftUICoreDataFetchRequestRedesign
 //
 //  Created by Malcolm Hall on 12/11/2024.
@@ -9,10 +9,10 @@ import SwiftUI
 import CoreData
 
 @propertyWrapper
-struct FetchRequest4<ResultType>: DynamicProperty where ResultType: NSManagedObject {
+struct FetchRequest3<ResultType>: DynamicProperty where ResultType: NSManagedObject {
     
     @Environment(\.managedObjectContext) private var managedObjectContext
-    @StateObject private var controller = FetchController<ResultType>()
+    @StateObject private var controller = FetchController3<ResultType>()
     
     private let config: FetchConfig
     private let changesAnimation: Animation?
@@ -67,7 +67,7 @@ public struct FetchResult<ResultType> {
 }
 
 @MainActor
-public class FetchController<ResultType>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject where ResultType: NSManagedObject {
+public class FetchController3<ResultType>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject where ResultType: NSManagedObject {
     
     init(changesAnimation: Animation? = nil) {
         self.changesAnimation = changesAnimation
@@ -120,7 +120,7 @@ public class FetchController<ResultType>: NSObject, @preconcurrency NSFetchedRes
     // designed to prevent unnecessary converts to NSSortDescriptor
     private var cachedModernSortDescriptors: [SortDescriptor<ResultType>]?
     
-    public func update(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) {
+    public func update(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext) {
         if cachedModernSortDescriptors != sortDescriptors {
             convenienceFetchRequest.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
             cachedModernSortDescriptors = sortDescriptors
@@ -131,7 +131,7 @@ public class FetchController<ResultType>: NSObject, @preconcurrency NSFetchedRes
         update(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext)
     }
     
-    public func update(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext, changesAnimation: Animation? = nil) {
+    public func update(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext) {
         if convenienceFetchRequest.sortDescriptors != nsSortDescriptors {
             convenienceFetchRequest.sortDescriptors = nsSortDescriptors
             cachedModernSortDescriptors = nil //nsSortDescriptors.compactMap { SortDescriptor($0, comparing: ResultType.self) }

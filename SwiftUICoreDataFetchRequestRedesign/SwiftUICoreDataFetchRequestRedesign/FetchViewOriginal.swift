@@ -137,7 +137,7 @@ struct FetchViewOriginal: View {
 extension FetchedTable {
     init(ascending: Binding<Bool>) {
         let sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending.wrappedValue ? .forward : .reverse)]
-        let fetch = FetchRequest(sortDescriptors: sortDescriptors)
+        let fetch = FetchRequest(sortDescriptors: sortDescriptors, animation: .default)
         let sortDescriptorsBinding = Binding {
             sortDescriptors
         } set: { v in

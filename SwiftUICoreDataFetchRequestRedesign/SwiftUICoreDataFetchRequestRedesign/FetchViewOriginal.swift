@@ -8,7 +8,6 @@
 import SwiftUI
 import CoreData
 
-
 //class MyFetch: ObservableObject {
 struct MyFetch {
     var request = { let fr = Item.fetchRequest()
@@ -53,6 +52,8 @@ struct MyFetch {
     }
 }
 
+let falsePredicate = NSPredicate(value: false)
+
 struct FetchViewOriginal: View {
     
     // for testing body recomputation
@@ -67,19 +68,19 @@ struct FetchViewOriginal: View {
     
     // initial sort [] means random and it resets to this every time this View is re-init by the parent body.
     // we cannot use the value of ascending in this decleration to set the correct sort.
-//    @FetchRequest(sortDescriptors: []) var items: FetchedResults<Item>
+    @FetchRequest(sortDescriptors: [], predicate: falsePredicate, animation: .default) var items: FetchedResults<Item>
   
-//    var sortDescriptors: [SortDescriptor<Item>] {
-//        [SortDescriptor(\Item.timestamp, order: myFetch.ascending ? .forward : .reverse)]
-//    }
+    var sortDescriptors: [SortDescriptor<Item>] {
+        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+    }
 //    
-//    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
-//        Binding {
-//            sortDescriptors
-//        } set: { v in
-//            myFetch.ascending = v.first?.order == .forward
-//        }
-//    }
+    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
+        Binding {
+            sortDescriptors
+        } set: { v in
+            ascending = v.first?.order == .forward
+        }
+    }
 //    
 //    
 //    var fetchRequest: FetchRequest<Item> {
@@ -89,7 +90,7 @@ struct FetchViewOriginal: View {
     
 
     @State private var counter2 = 0
-    
+   
     var body: some View {
         VStack {
             //            NavigationLink("Test Link") {
@@ -118,7 +119,30 @@ struct FetchViewOriginal: View {
                 counter2 += 1
             }
             
-            FetchedTable(ascending: $ascending)
+            //FetchedTable(ascending: $ascending)
+            
+            Table(items, sortOrder: sortDescriptorsBinding) {
+                //    List(results) { item in
+                TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
+                    //       NavigationLink {
+                    //                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                    //                            .toolbar {
+                    //                                Button("Delete") {
+                    //                                    viewContext.delete(item)
+                    //                                }
+                    //                            }
+                    //                        } label: {
+                    Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                    //                        }
+                    
+                }
+            }
+        }
+        .onAppear {
+            items.nsPredicate = nil
+        }
+        .onChange(of: ascending, initial: true) {
+            items.sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
         }
     }
   

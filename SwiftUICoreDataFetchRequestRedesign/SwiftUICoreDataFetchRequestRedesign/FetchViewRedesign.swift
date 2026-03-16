@@ -13,10 +13,10 @@ struct FetchViewRedesign: View {
     
     //@State private var sortDescriptors: [SortDescriptor<Item>] = []
     static var falsePredicate = NSPredicate(value: false)
-    //@State private var nsPredicate: NSPredicate? =
+    //@State private var nsPredicate: NSPredicate? = falsePredicate
     
     @State private var ascending: Bool = true
-    //@State private var nsSortDescriptors: [NSSortDescriptor] = []
+    //@State private var nsSortDescriptors: [NSSortDescriptor]?
     
     // source of truth for the sort can easily be persisted
    // @AppStorage("Ascending") private var ascendingStored = true
@@ -24,29 +24,30 @@ struct FetchViewRedesign: View {
     // for testing body recomputation
     let counter: Int
     
-    var sortDescriptors: [SortDescriptor<Item>] {
-        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
-    }
+//    var sortDescriptors: [SortDescriptor<Item>] {
+//        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+//    }
     
     //@State var myFetch = MyFetch()
     @State var toggle = false
-    //@StateObject var fetchController = FetchController2<Item>(changesAnimation: .default)//sortDescriptors: [], nsPredicate: Self.falsePredicate)
+    @StateObject var fetchController = FetchController2<Item>(changesAnimation: .default)//sortDescriptors: [], nsPredicate: Self.falsePredicate)
     
+//    var fetchRequest: FetchRequest3<Item> {
+//        FetchRequest3(sortDescriptors: sortDescriptors, changesAnimation: .default)
+//    }
     
-    var fetchRequest: FetchRequest2<Item> {
-        FetchRequest2(sortDescriptors: sortDescriptors, changesAnimation: .default)
-    }
     
     // gets the sort descriptor directly from the fetch.
     // transforms from the sort descriptors set by the table to the ascending state bool.
-    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
-        Binding {
+    var sortDescriptors: Binding<[SortDescriptor<Item>]> {
+        let sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+        return Binding {
             sortDescriptors
         } set: { v in
             ascending = v.first?.order == .forward
         }
     }
-    
+//    
 //    func updateNSSortDescriptors() {
 //        fetchController.nsSortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
 //    }
@@ -65,8 +66,8 @@ struct FetchViewRedesign: View {
        // let _ = updateController()
         //let _ = fetchController.update(nsSortDescriptors: nsSortDescriptors, nsPredicate: nsPredicate, managedObjectContext: viewContext)
         VStack {
-            // let items = fetchController.fetchedObjects
-            FetchedResultsView(result: fetchRequest) { result in
+            let result = fetchController.result // (nsSortDescriptors: nsSortDescriptors, managedObjectContext: viewContext)
+            //FetchedResultsView(result: fetchRequest) { result in
                 let items = result.objects
                 //let items = fetchController.result.objects
                 //                switch(result) {
@@ -94,24 +95,19 @@ struct FetchViewRedesign: View {
                     }
                 }
                 
-                Table(items, sortOrder: sortDescriptorsBinding) {
+                Table(items, sortOrder: sortDescriptors) {
                     TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
                         ItemRow(item: item)
                     }
                 }
             }
-//            .onAppear {
-//                fetchController.nsPredicate = nil
-//                fetchController.managedObjectContext = viewContext
-//                updateNSSortDescriptors()
-//            }
-//            .onChange(of: viewContext) {
-//                fetchController.managedObjectContext = viewContext
-//            }
-//            .onChange(of: ascending) {
-//                updateNSSortDescriptors()
-//            }
-        }
+            .onChange(of: viewContext, initial: true) {
+                fetchController.managedObjectContext = viewContext
+            }
+            .onChange(of: ascending, initial: true) {
+                fetchController.nsSortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
+            }
+        
     }
     
     struct ItemRow: View {
@@ -139,7 +135,7 @@ struct FetchViewRedesign: View {
     //        }
     
     struct FetchedResultsView<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
-        @FetchRequest2 var result: FetchResult<ResultType>
+        @FetchRequest3 var result: FetchResult<ResultType>
         @ViewBuilder let content: (FetchResult<ResultType>) -> Content
         
         var body: some View {

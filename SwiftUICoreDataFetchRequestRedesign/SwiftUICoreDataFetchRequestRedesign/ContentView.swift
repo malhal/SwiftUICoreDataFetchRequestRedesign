@@ -32,7 +32,7 @@ struct ContentView: View {
             VStack {
                 Text("FetchViewRedesign")
                 FetchViewRedesign(counter: counter)
-                    .environment(\.managedObjectContext, counter == 0 ? viewContext : context2)
+                    //.environment(\.managedObjectContext, counter == 0 ? viewContext : context2)
             }
         }
         .toolbar {

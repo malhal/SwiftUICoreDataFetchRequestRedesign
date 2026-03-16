@@ -42,21 +42,17 @@ struct FetchRequest3<ResultType>: DynamicProperty where ResultType: NSManagedObj
         self.changesAnimation = changesAnimation
     }
     
-    var wrappedValue: FetchResult<ResultType> {
-        controller.result
-    }
+    var wrappedValue = FetchResult<ResultType>()
     
-    func update() {
-        switch config {
+    mutating func update() {
+        controller.changesAnimation = changesAnimation
+        wrappedValue = switch config {
             case .manual(let request):
-                controller.update(fetchRequest: request, managedObjectContext: managedObjectContext)
+                controller.result(fetchRequest: request, managedObjectContext: managedObjectContext)
             case .modern(let sort, let predicate):
-                controller.update(sortDescriptors: sort, nsPredicate: predicate, managedObjectContext: managedObjectContext)
+                controller.result(sortDescriptors: sort, nsPredicate: predicate, managedObjectContext: managedObjectContext)
             case .legacy(let sort, let predicate):
-                controller.update(nsSortDescriptors: sort, nsPredicate: predicate, managedObjectContext: managedObjectContext)
-        }
-        if changesAnimation != controller.changesAnimation {
-            controller.changesAnimation = changesAnimation
+                controller.result(nsSortDescriptors: sort, nsPredicate: predicate, managedObjectContext: managedObjectContext)
         }
     }
 }
@@ -75,20 +71,22 @@ public class FetchController3<ResultType>: NSObject, @preconcurrency NSFetchedRe
     }
     
     public var changesAnimation: Animation?
-    private var fetchedResultsController: NSFetchedResultsController<ResultType>?
+    private var fetchedResultsController: NSFetchedResultsController<ResultType>? {
+        didSet {
+            oldValue?.delegate = nil
+            fetchedResultsController?.delegate = self
+        }
+    }
     
-    public private(set) var result = FetchResult<ResultType>()
+    private var result = FetchResult<ResultType>()
     
-    public func update(fetchRequest: NSFetchRequest<ResultType>, managedObjectContext: NSManagedObjectContext) {
-        
+    public func result(fetchRequest: NSFetchRequest<ResultType>, managedObjectContext: NSManagedObjectContext) -> FetchResult<ResultType> {
         if let frc = fetchedResultsController {
             if frc.managedObjectContext != managedObjectContext {
-                frc.delegate = nil
                 fetchedResultsController = nil
             }
             
             if frc.fetchRequest != fetchRequest {
-                frc.delegate = nil
                 fetchedResultsController = nil
             }
         }
@@ -102,7 +100,6 @@ public class FetchController3<ResultType>: NSObject, @preconcurrency NSFetchedRe
                 sectionNameKeyPath: nil,
                 cacheName: nil
             )
-            frc.delegate = self
             fetchedResultsController = frc
             
             do {
@@ -114,32 +111,28 @@ public class FetchController3<ResultType>: NSObject, @preconcurrency NSFetchedRe
                 result.error = error // and keep old objects
             }
         }
+        
+        return result
     }
     
     private let convenienceFetchRequest: NSFetchRequest<ResultType> = NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
     // designed to prevent unnecessary converts to NSSortDescriptor
     private var cachedModernSortDescriptors: [SortDescriptor<ResultType>]?
     
-    public func update(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext) {
+    public func result(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext) -> FetchResult<ResultType> {
         if cachedModernSortDescriptors != sortDescriptors {
             convenienceFetchRequest.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
             cachedModernSortDescriptors = sortDescriptors
         }
-        if convenienceFetchRequest.predicate != nsPredicate {
-            convenienceFetchRequest.predicate = nsPredicate
-        }
-        update(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext)
+        convenienceFetchRequest.predicate = nsPredicate
+        return result(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext)
     }
     
-    public func update(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext) {
-        if convenienceFetchRequest.sortDescriptors != nsSortDescriptors {
-            convenienceFetchRequest.sortDescriptors = nsSortDescriptors
-            cachedModernSortDescriptors = nil //nsSortDescriptors.compactMap { SortDescriptor($0, comparing: ResultType.self) }
-        }
-        if convenienceFetchRequest.predicate != nsPredicate {
-            convenienceFetchRequest.predicate = nsPredicate
-        }
-        update(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext)
+    public func result(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, managedObjectContext: NSManagedObjectContext) -> FetchResult<ResultType> {
+        convenienceFetchRequest.sortDescriptors = nsSortDescriptors
+        cachedModernSortDescriptors = nil //nsSortDescriptors.compactMap { SortDescriptor($0, comparing: ResultType.self) }
+        convenienceFetchRequest.predicate = nsPredicate
+        return result(fetchRequest: convenienceFetchRequest, managedObjectContext: managedObjectContext)
     }
     
     private var hasStructuralChanges = false

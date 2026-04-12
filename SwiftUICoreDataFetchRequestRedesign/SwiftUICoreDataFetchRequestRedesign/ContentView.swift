@@ -7,63 +7,76 @@
 
 import SwiftUI
 import CoreData
+import Combine
+class MyStore: ObservableObject {
+    @Published var count1 = 0
+    @Published var count2 = 0
+    //let count1 = CurrentValueSubject<Int, Never>(0)
+}
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
+    //@Environment(\.managedObjectContext) private var viewContext
     
     @State var counter = 0
-    @State var context2 = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+    //@State var context2 = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+    
+    @StateObject var myStore = MyStore()
+    
     var body: some View {
-        HStack {
+//        HStack {
+//            VStack {
+//                Text("Launch on macOS or iPad landscape so sortable table headers appear. First click both headers to change the sort order of both tables, then click increment button. Notice Original loses the modified sort order but Redesign does not.").padding()
+//                
+//                Button("Increment \(counter)") {
+//                    counter += 1
+//                }
+//                Button("Increment myStore \(myStore.count1)") {
+//                    myStore.count1 += 1
+//                    //myStore.count.send(myStore.count.value + 1)
+//                }
+//                Text("Increment counter causes FetchViewOriginal and FetchViewRedesign to be re-init.").padding()
+//                
+//            }
+//            // NavigationStack {
             VStack {
-                Text("Launch on macOS or iPad landscape so sortable table headers appear. First click both headers to change the sort order of both tables, then click increment button. Notice Original loses the modified sort order but Redesign does not.").padding()
-                
-                Button("Increment \(counter)") {
-                    counter += 1
-                }
-                Text("Increment counter causes FetchViewOriginal and FetchViewRedesign to be re-init.").padding()
-                
-            }
-            // NavigationStack {
-            VStack {
-                Text("FetchViewOriginal")
-                FetchViewOriginal(counter: counter)
+            
+    FetchViewOriginal(counter: counter, myStore: myStore)
             }
             VStack {
-                Text("FetchViewRedesign")
-                FetchViewRedesign(counter: counter)
-                    //.environment(\.managedObjectContext, counter == 0 ? viewContext : context2)
-            }
-        }
-        .toolbar {
-#if os(iOS)
-            ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
-            }
-#endif
-            ToolbarItem {
-                Button(action: addItem) {
-                    Label("Add Item", systemImage: "plus")
-                }
-            }
-        }
-    }
-
-    private func addItem() {
-        //withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+//                Text("FetchViewRedesign")
+            //    FetchViewRedesign(counter: counter)
+//                    //.environment(\.managedObjectContext, counter == 0 ? viewContext : context2)
             }
         //}
+//        .toolbar {
+//#if os(iOS)
+//            ToolbarItem(placement: .navigationBarTrailing) {
+//                EditButton()
+//            }
+//#endif
+//            ToolbarItem {
+//                Button(action: addItem) {
+//                    Label("Add Item", systemImage: "plus")
+//                }
+//            }
+//        }
     }
+
+//    private func addItem() {
+//        //withAnimation {
+//            let newItem = Item(context: viewContext)
+//            newItem.timestamp = Date()
+//
+//            do {
+//                try viewContext.save()
+//            } catch {
+//                // Replace this implementation with code to handle the error appropriately.
+//                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
+//                let nsError = error as NSError
+//                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+//            }
+//        //}
+//    }
 }
 
 #Preview {

@@ -8,10 +8,20 @@
 import SwiftUI
 import CoreData
 
+//KeyPathComparator
+extension SortComparator {
+    /// Returns a copy of the comparator with the opposite sort order.
+    func reversed() -> Self {
+        var copy = self
+        copy.order = (self.order == .forward ? .reverse : .forward)
+        return copy
+    }
+}
+
 //class MyFetch: ObservableObject {
 struct MyFetch {
     var request = { let fr = Item.fetchRequest()
-        fr.sortDescriptors = []
+        fr.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: true)]
         return fr
     }()
     
@@ -54,45 +64,86 @@ struct MyFetch {
 
 let falsePredicate = NSPredicate(value: false)
 
+struct Item2: Identifiable, Equatable {
+    let id = UUID()
+    var timestamp = Date.now
+    
+    static var sample: [Item2] {
+        return [
+            .init(timestamp: .distantPast), .init(), .init(timestamp: .distantFuture)
+        ]
+    }
+}
+
+struct SortedItems {
+     var items: [Item2] {
+        didSet {
+            update()
+        }
+    }
+    
+    init(items: [Item2] = [], sortOrder: [KeyPathComparator<Item2>] = []) {
+        self.items = items.sorted(using: sortOrder)
+        self.sortOrder = sortOrder
+        update()
+    }
+    
+    private(set) var sortedItems: [Item2] = []
+    
+    var sortOrder: [KeyPathComparator<Item2>] {
+        didSet {
+            update()
+        }
+    }
+    
+    mutating func update(){
+        sortedItems = items.sorted(using: sortOrder)
+    }
+    
+}
+
 struct FetchViewOriginal: View {
     
     // for testing body recomputation
     let counter: Int
-    
+    let myStore: MyStore
     // source of truth for the sort
     @State private var ascending = true
+    @State private var ascending2 = true
     //@State var myFetch = MyFetch()
     
-    
-    @Environment(\.managedObjectContext) private var viewContext
+    // @Environment(\.managedObjectContext) private var viewContext
     
     // initial sort [] means random and it resets to this every time this View is re-init by the parent body.
     // we cannot use the value of ascending in this decleration to set the correct sort.
-    @FetchRequest(sortDescriptors: [], predicate: falsePredicate, animation: .default) var items: FetchedResults<Item>
-  
-    var sortDescriptors: [SortDescriptor<Item>] {
-        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
-    }
-//    
-    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
-        Binding {
-            sortDescriptors
-        } set: { v in
-            ascending = v.first?.order == .forward
-        }
-    }
+    //@FetchRequest(sortDescriptors: [], predicate: falsePredicate) var items: FetchedResults<Item>
+    @State var items = Item2.sample
+    @State var sortedItems = SortedItems()
+    //@State var sortedItems = [Item2]()
+    //@State var sortDescriptors = [KeyPathComparator<Item2>]()
+    
+//    var sortDescriptors: [SortDescriptor<Item2>] {
+//        [SortDescriptor(\Item2.timestamp, order: ascending ? .forward : .reverse)]
+//    }
+//
+//    var sortDescriptorsBinding: Binding<[SortDescriptor<Item2>]> {
+//        Binding {
+//            sortDescriptors
+//        } set: { v in
+//            ascending = v.first?.order == .forward
+//        }
+//    }
 //    
 //    
 //    var fetchRequest: FetchRequest<Item> {
 //        //FetchRequest(sortDescriptors: sortDescriptors)
 //        FetchRequest(fetchRequest: myFetch.request, animation: .default)
 //    }
-    
 
     @State private var counter2 = 0
    
     var body: some View {
-        VStack {
+      //  VStack {
             //            NavigationLink("Test Link") {
             //                Text("Test")
             //                    .toolbar {
@@ -118,12 +169,34 @@ struct FetchViewOriginal: View {
             Button("Recompute \(counter2)") {
                 counter2 += 1
             }
-            
+        Button("Add") {
+           /// withAnimation {
+            DispatchQueue.main.asyncAfter(deadline:.now() + 0) {
+                items.append(.init())
+            }
+                
+           // }
+        }
+            Button("ascending \(ascending)") {
+              //  withAnimation {
+                 ascending.toggle()
+                //}
+                
+                //sortedItems.sortOrder = [KeyPathComparator(\Item2.timestamp, order: !ascending ? .forward : .reverse)]
+                //}
+                //if let sort = sortOrder.first {
+                //     sortOrder = [sort.reversed()]
+                // }
+                //  }
+            }
             //FetchedTable(ascending: $ascending)
             
-            Table(items, sortOrder: sortDescriptorsBinding) {
-                //    List(results) { item in
-                TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
+        Table(sortedItems.sortedItems, sortOrder: $sortedItems.sortOrder.animation()) { //}, sortOrder: sortDescriptorsBinding) {
+        //VStack {
+                    //    ForEach(sortedItems.sortedItems) { item in
+                //
+                //TableColumn("timestamp" as LocalizedStringResource, value: \Item2.timestamp) { item in
+                TableColumn("timestamp", value: \Item2.timestamp) { item in
                     //       NavigationLink {
                     //                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
                     //                            .toolbar {
@@ -132,18 +205,43 @@ struct FetchViewOriginal: View {
                     //                                }
                     //                            }
                     //                        } label: {
-                    Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                    Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
                     //                        }
                     
                 }
             }
-        }
+        
+       
+        
         .onAppear {
-            items.nsPredicate = nil
+            print("onAppear")
+            sortedItems = SortedItems(items: items, sortOrder: [KeyPathComparator(\Item2.timestamp, order: ascending ? .forward : .reverse)])
         }
-        .onChange(of: ascending, initial: true) {
-            items.sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+        .onChange(of: sortedItems.sortOrder) {
+            let newAscending = sortedItems.sortOrder.first?.order == .forward
+            // BREAK THE LOOP: Only write if the value is actually different
+            if ascending != newAscending {
+                ascending = newAscending
+            }
         }
+        .onChange(of: ascending) {
+            //withAnimation {
+            sortedItems.sortOrder = [KeyPathComparator(\Item2.timestamp, order: ascending ? .forward : .reverse)]
+           // }
+        }
+        .onChange(of: items) {
+           // withAnimation {
+            sortedItems.items = items
+           // }
+        }
+       
+//        .onReceive(myStore.$count1) { c in
+//            print("count1")
+//        }
+//        .onReceive(myStore.$count2) { c in
+//            print("count2")
+        //}
+        
     }
   
 
@@ -157,6 +255,25 @@ struct FetchViewOriginal: View {
 //        }
 //    }
 }
+
+//NSViewRepresentable ignores withAnimation when triggered via .onChange on macOS, unlike UIViewRepresentable on iOS
+//import UIKit
+//struct AnimatedBackgroundView: UIViewRepresentable {
+//    let toggle: Bool
+//    func makeUIView(context: Context) -> some UIView {
+//        UIView()
+//    }
+//    
+//    func updateUIView(_ uiView: UIViewType, context: Context) {
+//        let targetColor = toggle ? UIColor.red : UIColor.blue
+//        context.animate {
+//            uiView.backgroundColor = targetColor
+//        }
+//        
+//    }
+//}
+
+
 
 extension FetchedTable {
     init(ascending: Binding<Bool>) {
@@ -195,6 +312,6 @@ struct FetchedTable: View {
     }
 }
 
-#Preview {
-    FetchViewOriginal(counter: 0)
-}
+//#Preview {
+//    FetchViewOriginal(counter: 0)
+//}

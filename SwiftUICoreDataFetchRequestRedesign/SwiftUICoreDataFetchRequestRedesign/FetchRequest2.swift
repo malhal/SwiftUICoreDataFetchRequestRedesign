@@ -1,10 +1,4 @@
-//
-//  FetchRequest2.swift
-//  SwiftUICoreDataFetchRequestRedesign
-//
-//  Created by Malcolm Hall on 12/11/2024.
-//
-
+import Foundation
 import SwiftUI
 import CoreData
 import Combine
@@ -13,7 +7,7 @@ import Combine
 public struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
     
     @Environment(\.managedObjectContext) private var managedObjectContext
-    @StateObject private var controller = FetchController2<ResultType>()
+    @StateObject private var result = FetchResult2<ResultType>()
     
     private let config: FetchConfig
     private let changesAnimation: Animation?
@@ -21,15 +15,15 @@ public struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSMan
     // Internal representation to avoid 'if let' branching in wrappedValue
     private enum FetchConfig {
         case manual(NSFetchRequest<ResultType>)
-        //case modern(sort: [SortDescriptor<ResultType>], predicate: NSPredicate?)
+        case modern(sort: [SortDescriptor<ResultType>], predicate: NSPredicate?)
         case convenience(sort: [NSSortDescriptor], predicate: NSPredicate?)
     }
     
     // Modern SortDescriptors (SwiftUI standard)
-    //    public init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, changesAnimation: Animation? = nil) {
-    //        self.config = .modern(sort: sortDescriptors, predicate: nsPredicate)
-    //        self.changesAnimation = changesAnimation
-    //    }
+        public init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, changesAnimation: Animation? = nil) {
+            self.config = .modern(sort: sortDescriptors, predicate: nsPredicate)
+            self.changesAnimation = changesAnimation
+        }
     
     // Legacy NSSortDescriptors
     public init(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, changesAnimation: Animation? = nil) {
@@ -43,44 +37,22 @@ public struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSMan
         self.changesAnimation = changesAnimation
     }
     
-    public var wrappedValue: FetchResult<ResultType> {
-        controller.withoutPublishing { // prevents publishing changes from updates not allowed error
-            switch config {
-                case .manual(let request):
-                    if controller.fetchRequest !== request { // we need to check the reference since we are alreayd monitoring its properties
-                        controller.fetchRequest = request
-                    }
-                    //case .modern(let sort, let predicate):
-                    //  if controller.fetchRequest.sortDescriptors != sort {
-                    //      controller.fetchRequest.sortDescriptors = sort
-                    //  }
-                    //  if controller.fetchRequest.predicate != predicate {
-                    //      controller.fetchRequest.predicate = predicate
-                    //  }
-                case .convenience(let sort, let predicate):
-                    if controller.fetchRequest.sortDescriptors != sort {
-                        let p = controller.fetchRequest.copy() as! NSFetchRequest<ResultType>
-                        p.sortDescriptors = sort
-                        controller.fetchRequest = p
-                    }
-                    if controller.fetchRequest.predicate != predicate {
-                        controller.fetchRequest.predicate = predicate
-                       
-                    }
-            }
-            if controller.managedObjectContext != managedObjectContext {
-                controller.managedObjectContext = managedObjectContext
-            }
-            if controller.changesAnimation != changesAnimation {
-                controller.changesAnimation = changesAnimation
-            }
+    public var wrappedValue: FetchResult2<ResultType> {
+        switch config {
+            case .manual(let request):
+                result.fetchRequest = request
+            case .modern(let sort, let predicate):
+                result.sortDescriptors = sort
+                result.nsPredicate = predicate
+            case .convenience(let sort, let predicate):
+                result.nsSortDescriptors = sort
+                result.nsPredicate = predicate
         }
-        return controller.result
+        result.managedObjectContext = managedObjectContext
+        result.changesAnimation = changesAnimation
+        return result
     }
     
-    public func update() {
-       
-    }
 }
 
 public enum FetchError: LocalizedError {
@@ -100,88 +72,97 @@ public enum FetchError: LocalizedError {
     }
 }
 
+@Observable
 @MainActor
-public class FetchController2<ResultType>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject where ResultType: NSManagedObject {
-    //public var objectWillChange = PassthroughSubject<Void, Never>()
+public class FetchResult2<ResultType>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject where ResultType: NSManagedObject {
     public var changesAnimation: Animation?
     
-    init(fetchRequest: NSFetchRequest<ResultType>? = nil, changesAnimation: Animation? = nil) {
-        self.fetchRequest = fetchRequest ?? NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
+    init(changesAnimation: Animation? = nil) {
+        let fr = NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
+        self._fetchRequest = fr
         self.changesAnimation = changesAnimation
         super.init()
-        setupPropertyObservations()
-    }
-    
-    public var isPublishingDisabled = false
-    
-    public func withoutPublishing(_ work: () -> Void) {
-        self.isPublishingDisabled = true
-        defer { self.isPublishingDisabled = false }
-        work()
     }
     
     public var managedObjectContext: NSManagedObjectContext? {
-        willSet {
-            if !isPublishingDisabled {
-                objectWillChange.send()
+        didSet {
+            if managedObjectContext != oldValue {
+                _fetchedResultsController = nil
             }
         }
+    }
+    
+    // Stored request with copying semantics; we expose a computed property to hook willSet/didSet behavior
+    private var _fetchRequest: NSFetchRequest<ResultType> {
         didSet {
             _fetchedResultsController = nil
         }
     }
     
-    private var propertyObservations: [NSKeyValueObservation] = []
-    
-    private var _needsUpdatedResult: Bool = true
-    private func setNeedsUpdatedResult() {
-        if !isPublishingDisabled {
-            objectWillChange.send()   
-        }
-        _needsUpdatedResult = true
-    }
-    
-    private func setupPropertyObservations() {
-        // Clear old observers so we don't leak or get double-notifications
-        propertyObservations.removeAll()
-        
-        // Observe internal changes to the CURRENT request object
-        let pObs = fetchRequest.observe(\.predicate, options: [.new]) { [weak self] _, _ in
-            MainActor.assumeIsolated {
-                self?.setNeedsUpdatedResult()
-            }
-        }
-        
-        let sObs = fetchRequest.observe(\.sortDescriptors, options: [.new]) { [weak self] _, _ in
-            MainActor.assumeIsolated {
-                self?.setNeedsUpdatedResult()
-            }
-        }
-        
-        propertyObservations = [pObs, sObs]
-        
-    }
-    
+    //@NSCopying var not working in @Observable
     public var fetchRequest: NSFetchRequest<ResultType> {
-        willSet {
-            if !isPublishingDisabled {
-                objectWillChange.send()
+        get {
+            _fetchRequest
+        }
+        set {
+            if newValue != _fetchRequest {
+                _fetchRequest = newValue.copy() as! NSFetchRequest<ResultType>
             }
         }
-        didSet {
-            _fetchedResultsController = nil
-            setupPropertyObservations()
+    }
+    
+    public var nsSortDescriptors: [NSSortDescriptor]? {
+        get {
+            _fetchRequest.sortDescriptors
+        }
+        set {
+            let fr = _fetchRequest
+            if newValue != fr.sortDescriptors {
+                fr.sortDescriptors = newValue
+                _fetchRequest = fr
+                _sortDescriptors = nil
+            }
         }
     }
-   
+    
+    public var nsPredicate: NSPredicate? {
+        get {
+            _fetchRequest.predicate
+        }
+        set {
+            let fr = _fetchRequest
+            if newValue != fr.predicate {
+                fr.predicate = newValue
+                _fetchRequest = fr
+            }
+        }
+    }
+    
+    public var _sortDescriptors: [SortDescriptor<ResultType>]?
+    public var sortDescriptors: [SortDescriptor<ResultType>] {
+        get {
+            if let _sortDescriptors { return _sortDescriptors }
+            let sd = fetchRequest.sortDescriptors?.compactMap { SortDescriptor($0, comparing: ResultType.self) } ?? []
+            _sortDescriptors = sd
+            return sd
+        }
+        set {
+            if _sortDescriptors != newValue {
+                _sortDescriptors = newValue
+                nsSortDescriptors = newValue.map { NSSortDescriptor($0) }
+            }
+        }
+    }
+    
     private var _fetchedResultsController: NSFetchedResultsController<ResultType>? {
         didSet {
             oldValue?.delegate = nil
             _fetchedResultsController?.delegate = self
-            _needsUpdatedResult = true
+            _objects = nil
         }
     }
-    private var fetchedResultsController: NSFetchedResultsController<ResultType>  {
+    
+    private var fetchedResultsController: NSFetchedResultsController<ResultType> {
         get throws {
             if let _fetchedResultsController { return _fetchedResultsController }
             guard let managedObjectContext else {
@@ -197,27 +178,32 @@ public class FetchController2<ResultType>: NSObject, @preconcurrency NSFetchedRe
                 cacheName: nil
             )
             _fetchedResultsController = frc
+            
+            try frc.performFetch()
             return frc
         }
     }
     
-    private var _result = FetchResult<ResultType>()
-    public var result: FetchResult<ResultType> {
+    
+    private var _objects: [ResultType]?
+    public var objects: [ResultType] {
+        if let _objects { return _objects }
+        let fetchedObjects: [ResultType]
         do {
-            let frc = try fetchedResultsController
-            if _needsUpdatedResult {
-                _needsUpdatedResult = false
-                try frc.performFetch()
-                _result.error = nil
-                _result.objects = frc.fetchedObjects ?? []
-            }
+            fetchedObjects = try fetchedResultsController.fetchedObjects ?? []
+            lastError = nil
         }
         catch {
-            _result.error = error as? FetchError ?? FetchError.fetchFailure(error) // and keep old objects
+            fetchedObjects = []
+            lastError = error as? FetchError ?? FetchError.fetchFailure(error) // and keep old objects
         }
-        return _result
+        _objects = fetchedObjects
+        return fetchedObjects
     }
+
+    public var lastError: Error? = nil
     
+    @ObservationIgnored
     private var hasStructuralChanges = false
     
     public func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
@@ -251,8 +237,7 @@ public class FetchController2<ResultType>: NSObject, @preconcurrency NSFetchedRe
         guard let fetchedObjects = controller.fetchedObjects as? [ResultType] else { return }
         
         withAnimation(changesAnimation) {
-            objectWillChange.send()
-            _result.objects = fetchedObjects
+            _objects = fetchedObjects
         }
     }
     

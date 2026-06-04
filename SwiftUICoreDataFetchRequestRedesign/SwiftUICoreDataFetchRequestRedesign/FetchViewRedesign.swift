@@ -7,9 +7,9 @@
 
 import SwiftUI
 import CoreData
+import SwiftData
 
 struct FetchViewRedesign: View {
-    @Environment(\.managedObjectContext) var viewContext
     
     static var falsePredicate = NSPredicate(value: false)
     
@@ -43,40 +43,13 @@ struct FetchViewRedesign: View {
     
     var body: some View {
         VStack {
-            
-            FetchRequestView(request: fetchRequest) { result in
-                let items = result.objects
-                //                switch(result) {
-                //                    case let .failure(error):
-                //                        Text(error.localizedDescription)
-                //                    case let .success(items):
-                HStack {
-                    //                            Button("Recompute \(counter2)") {
-                    //                                counter2 += 1 // calls body
-                    //
-                    //                            }
-                    Button("ascending \(ascending.description)") {
-                        //     withAnimation {
-                        ascending.toggle()
-                        //     }
-                        
-                    }
-                    Button("Update") {
-                        items.first?.timestamp = Date()
-                    }
-                    Button("Delete") {
-                        if let first = items.first {
-                            viewContext.delete(first)
-                        }
-                    }
-                }
-                Table(items, sortOrder: sortDescriptorsBinding) {
-                    
-                    TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
-                        ItemRow(item: item)
-                    }
-                }
+            Button("ascending \(ascending.description)") {
+                //     withAnimation {
+                ascending.toggle()
+                //     }
+                
             }
+            FetchRequestView(sortDescriptors: sortDescriptorsBinding, result: fetchRequest)
         }
     }
 }
@@ -105,12 +78,38 @@ struct ItemRow: View {
     //                }
     //        }
     
-struct FetchRequestView<Content, ResultType>: View where Content: View, ResultType: NSManagedObject {
-    @FetchRequest2 var request: FetchResult2<ResultType>
-    @ViewBuilder let content: (FetchResult2<ResultType>) -> Content
+struct FetchRequestView: View {
+    @Binding var sortDescriptors: [SortDescriptor<Item>]
+    @FetchRequest2 var result: FetchResult2<Item>
+    @Environment(\.managedObjectContext) var viewContext
     
     var body: some View {
-        content(request)
+        let items = result.objects
+        //                switch(result) {
+        //                    case let .failure(error):
+        //                        Text(error.localizedDescription)
+        //                    case let .success(items):
+        HStack {
+            //                            Button("Recompute \(counter2)") {
+            //                                counter2 += 1 // calls body
+            //
+            //                            }
+            
+            Button("Update") {
+                items.first?.timestamp = Date()
+            }
+            Button("Delete") {
+                if let first = items.first {
+                    viewContext.delete(first)
+                }
+            }
+        }
+        Table(items, sortOrder: $sortDescriptors) {
+            
+            TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
+                ItemRow(item: item)
+            }
+        }
     }
 }
 

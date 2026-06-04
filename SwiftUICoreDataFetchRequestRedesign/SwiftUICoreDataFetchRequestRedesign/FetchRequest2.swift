@@ -4,26 +4,19 @@ import CoreData
 import Combine
 
 @propertyWrapper
-public struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSManagedObject {
+public struct StaticFetchRequest<ResultType>: DynamicProperty where ResultType: NSManagedObject {
     
     @Environment(\.managedObjectContext) private var managedObjectContext
-    @StateObject private var controller = FetchController<ResultType>()
+    @StateObject private var fetcher = FetchUpdates<ResultType>()
     
-    private let config: FetchConfig
+    private let config: FetchUpdates<ResultType>.FetchConfiguration
     private let changesAnimation: Animation?
     
-    // Internal representation to avoid 'if let' branching in wrappedValue
-    private enum FetchConfig {
-        case manual(NSFetchRequest<ResultType>)
-        case modern(sort: [SortDescriptor<ResultType>], predicate: NSPredicate?)
-        case convenience(sort: [NSSortDescriptor], predicate: NSPredicate?)
-    }
-    
     // Modern SortDescriptors (SwiftUI standard)
-        public init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, changesAnimation: Animation? = nil) {
-            self.config = .modern(sort: sortDescriptors, predicate: nsPredicate)
-            self.changesAnimation = changesAnimation
-        }
+    public init(sortDescriptors: [SortDescriptor<ResultType>], nsPredicate: NSPredicate? = nil, changesAnimation: Animation? = nil) {
+        self.config = .modern(sort: sortDescriptors, predicate: nsPredicate)
+        self.changesAnimation = changesAnimation
+    }
     
     // Legacy NSSortDescriptors
     public init(nsSortDescriptors: [NSSortDescriptor], nsPredicate: NSPredicate? = nil, changesAnimation: Animation? = nil) {
@@ -37,17 +30,10 @@ public struct FetchRequest2<ResultType>: DynamicProperty where ResultType: NSMan
         self.changesAnimation = changesAnimation
     }
     
-    public var wrappedValue: FetchResult2<ResultType> = .init()
-    
-    public mutating func update() {
-        switch config {
-            case .manual(let request):
-                wrappedValue = controller.result(for: request, context: managedObjectContext, changesAnimation: changesAnimation)
-            case .modern(let sort, let predicate):
-                wrappedValue = controller.result(sortDescriptors: sort, predicate: predicate, context: managedObjectContext, changesAnimation: changesAnimation)
-            case .convenience(let sort, let predicate):
-                wrappedValue = controller.result(nsSortDescriptors: sort, predicate: predicate, context: managedObjectContext, changesAnimation: changesAnimation)
-        }
+    // 💡 Pure, beautiful implementation alignment
+    public var wrappedValue: FetchResult2<ResultType> {
+        fetcher.changesAnimation = changesAnimation
+        return fetcher.latestResult(for: config, context: managedObjectContext)
     }
     
 }
@@ -76,11 +62,21 @@ public struct FetchResult2<ResultType> {
 
 @Observable
 @MainActor
-public class FetchController<ResultType>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject where ResultType: NSManagedObject {
+public class FetchUpdates<ResultType>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate, ObservableObject where ResultType: NSManagedObject {
+    
+    @ObservationIgnored
     public var changesAnimation: Animation?
     
-    override init() {
+    init(changesAnimation: Animation? = nil) {
+        self.changesAnimation = changesAnimation
         super.init()
+    }
+    
+    // Internal representation to avoid 'if let' branching in wrappedValue
+    public enum FetchConfiguration: Equatable {
+        case manual(NSFetchRequest<ResultType>)
+        case modern(sort: [SortDescriptor<ResultType>], predicate: NSPredicate? = nil)
+        case convenience(sort: [NSSortDescriptor], predicate: NSPredicate? = nil)
     }
     
     // 1. Keep a single, reusable instance cached in private storage to avoid allocation churn
@@ -90,79 +86,54 @@ public class FetchController<ResultType>: NSObject, @preconcurrency NSFetchedRes
     @ObservationIgnored
     private var cachedSortDescriptors: [SortDescriptor<ResultType>]?
     
-    public func result(
-        sortDescriptors: [SortDescriptor<ResultType>],
-        predicate: NSPredicate? = nil,
-        context: NSManagedObjectContext,
-        changesAnimation: Animation? = nil
+    /// The single unified entry point. Mutates the scratchpad based on the config variant
+    /// and ensures optimal structural caching paths.
+    public func latestResult(
+        for config: FetchConfiguration,
+        context: NSManagedObjectContext
     ) -> FetchResult2<ResultType> {
         
-        // 1. Check if the incoming Swift SortDescriptors match our single cache property
-        if cachedSortDescriptors != sortDescriptors {
-            // Cache miss: Update the tracking token and perform the translation exactly once
-            cachedSortDescriptors = sortDescriptors
-            scratchpadRequest.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
+        // 2. Map configuration states directly to our reusable scratchpadRequest reference
+        switch config {
+            case .manual(let rawRequest):
+                // Pass-through execution for custom requests
+                return executeFetch(with: rawRequest, context: context)
+                
+            case .modern(let sort, let predicate):
+                if cachedSortDescriptors != sort {
+                    cachedSortDescriptors = sort
+                    scratchpadRequest.sortDescriptors = sort.map { NSSortDescriptor($0) }
+                }
+                scratchpadRequest.predicate = predicate
+                return executeFetch(with: scratchpadRequest, context: context)
+                
+            case .convenience(let sort, let predicate):
+                cachedSortDescriptors = nil // Invalidate modern cache token safely
+                scratchpadRequest.sortDescriptors = sort
+                scratchpadRequest.predicate = predicate
+                return executeFetch(with: scratchpadRequest, context: context)
         }
-        // High-performance path: If they matched, we don't touch scratchpadRequest.sortDescriptors at all!
-        // It safely retains the previously mapped NSSortDescriptor objects from the last pass.
-        
-        // 2. Assign the incoming predicate to our single reference vehicle
-        scratchpadRequest.predicate = predicate
-        
-        // 3. Forward to the primary engine pipeline for deep structural matching
-        return result(for: scratchpadRequest, context: context, changesAnimation: changesAnimation)
     }
     
-    /// Convenience entry point that updates a reusable scratchpad request to avoid object allocation churn.
-    public func result(
-        nsSortDescriptors: [NSSortDescriptor],
-        predicate: NSPredicate? = nil,
-        context: NSManagedObjectContext,
-        changesAnimation: Animation? = nil
-    ) -> FetchResult2<ResultType> {
-        
-        // required for the other result func with modern sorts
-        cachedSortDescriptors = nil
-        
-        // 2. Mutate the properties of the single reusable instance inline
-        scratchpadRequest.sortDescriptors = nsSortDescriptors
-        scratchpadRequest.predicate = predicate
-        
-        // 3. Pass the mutated scratchpad into our main engine method.
-        // If it matches the current FRC structurally, it returns the cached objects instantly.
-        // If it changed, the main method handles creating a safe, frozen .copy() for the new FRC.
-        return result(for: scratchpadRequest, context: context, changesAnimation: changesAnimation)
-    }
+    // MARK: - Core Fetch Mechanics
     
-    /// The single source-of-truth entry point for data generation.
-    /// Evaluates incoming configurations against the current FRC state and guarantees live updates.
-    public func result(for incomingRequest: NSFetchRequest<ResultType>,
-                        context: NSManagedObjectContext,
-                        changesAnimation: Animation? = nil
-    ) -> FetchResult2<ResultType> {
-        self.changesAnimation = changesAnimation
-        
-        // 1. Validate that we have proper sorting configuration before initializing Core Data pipelines
+    private func executeFetch(with incomingRequest: NSFetchRequest<ResultType>, context: NSManagedObjectContext) -> FetchResult2<ResultType> {
+        // Validate sorting exists
         guard incomingRequest.sortDescriptors?.isEmpty == false else {
-            let error = FetchError.missingSortDescriptors
-            self.lastResult.lastError = error
-            return self.lastResult
+            lastResult.lastError = FetchError.missingSortDescriptors
+            return lastResult
         }
         
-        // 2. Check if we can reuse the existing FRC instance (Structural Verification)
+        // Check if the FRC can be reused
         if let currentFRC = frc,
            currentFRC.managedObjectContext === context,
-           currentFRC.fetchRequest == incomingRequest { // Uses native structural deep-equality override
-            
-            // Context and query configuration match exactly; return current cached objects immediately
-            return self.lastResult
+           currentFRC.fetchRequest == incomingRequest {
+            return lastResult
         }
         
-        // 3. Setup a distinct instance shell to safely prevent shared-pointer mutation blindspots
+        // Configuration drifted: Rebuild a frozen copy for the new FRC tracking instance
         let safeRequestCopy = incomingRequest.copy() as! NSFetchRequest<ResultType>
-        
-        // 4. Construct a brand new FRC container
-        let newFRC = NSFetchedResultsController<ResultType>(
+        let newFRC = NSFetchedResultsController(
             fetchRequest: safeRequestCopy,
             managedObjectContext: context,
             sectionNameKeyPath: nil,
@@ -173,17 +144,13 @@ public class FetchController<ResultType>: NSObject, @preconcurrency NSFetchedRes
         
         do {
             try newFRC.performFetch()
-            let fetched = newFRC.fetchedObjects ?? []
-            
-            // Update our tracked reactive property
-            self.lastResult.objects = fetched
-            self.lastResult.lastError = nil
+            lastResult.objects = newFRC.fetchedObjects ?? []
+            lastResult.lastError = nil
         } catch {
-            let wrappedError = FetchError.fetchFailure(error)
-            self.lastResult.lastError = wrappedError
+            lastResult.lastError = FetchError.fetchFailure(error)
         }
         
-        return self.lastResult
+        return lastResult
     }
     
     // The single, clean reactive property that SwiftUI tracks for structural layout updates

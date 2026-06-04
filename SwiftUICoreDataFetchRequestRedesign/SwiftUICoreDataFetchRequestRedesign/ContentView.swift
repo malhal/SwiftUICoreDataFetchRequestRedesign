@@ -9,19 +9,11 @@ import SwiftUI
 import CoreData
 import Combine
 
-class MyStore: ObservableObject {
-    @Published var count1 = 0
-    @Published var count2 = 0
-    //let count1 = CurrentValueSubject<Int, Never>(0)
-}
-
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     
     @State var counter = 0
-    //@State var context2 = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-    
-    @StateObject var myStore = MyStore()
+    //@State var testChangingContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
     
     var body: some View {
         HStack {
@@ -31,22 +23,14 @@ struct ContentView: View {
                 Button("Increment \(counter)") {
                     counter += 1
                 }
-                Button("Increment myStore \(myStore.count1)") {
-                    myStore.count1 += 1
-                    //myStore.count.send(myStore.count.value + 1)
-                }
                 Text("Increment counter causes FetchViewOriginal and FetchViewRedesign to be re-init.").padding()
                 
             }
-            //            // NavigationStack {
             VStack {
-                
-                FetchViewOriginal(counter: counter, myStore: myStore)
+                FetchViewOriginal(counter: counter)
             }
             VStack {
-                //                Text("FetchViewRedesign")
                 FetchViewRedesign(counter: counter)
-                //                    //.environment(\.managedObjectContext, counter == 0 ? viewContext : context2)
             }
         }
         .toolbar {
@@ -64,7 +48,6 @@ struct ContentView: View {
     }
     
     private func addItem() {
-        //withAnimation {
         let newItem = Item(context: viewContext)
         newItem.timestamp = Date()
         
@@ -76,7 +59,6 @@ struct ContentView: View {
             let nsError = error as NSError
             fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
         }
-        //}
     }
 }
 

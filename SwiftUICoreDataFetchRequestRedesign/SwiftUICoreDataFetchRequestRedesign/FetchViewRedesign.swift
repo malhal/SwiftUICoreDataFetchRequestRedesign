@@ -34,16 +34,12 @@ struct FetchViewRedesign: View {
         }
     }
     @Environment(\.managedObjectContext) var viewContext
-    @StateObject var fetchUpdates = FetchUpdates<Item>(changesAnimation: .default)
-    
-    var result: FetchResult2<Item> {
-        fetchUpdates.latestResult(for: .modern(sort: sortDescriptors), context: viewContext)
-    }
+    @State var items: [Item] = []
     
     var body: some View {
         VStack {
-            let result = self.result
-            let items = result.objects
+            //   let result = self.result
+            // let items = result.objects
             
             HStack {
                 Button("ascending \(ascending.description)") {
@@ -69,6 +65,21 @@ struct FetchViewRedesign: View {
                 }
             }
         }
+        .fetch(of: Item.self, id: ascending) { request in
+            request.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
+        } results: { result in
+            if case let .success(items) = result {
+                withAnimation {
+                    self.items = items
+                }
+            }
+//            switch result {
+//                case .success(let results):
+//                    
+//                default:
+//                    break
+//            }
+        }
     }
 }
     
@@ -79,4 +90,5 @@ struct ItemRow: View {
         Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
     }
 }
+
 

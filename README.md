@@ -58,6 +58,9 @@ struct ItemListView: View {
     }
 }
 ```
+
+---
+
 ## Usage Example 2
 **Modern Sorted Fetch (`ModernSortedFetch`)**: Demonstrates how to use the built-in generic helper with native Swift SortDescriptor values for quick, lightweight, and type-safe query setup without writing custom structs.
 ```swift

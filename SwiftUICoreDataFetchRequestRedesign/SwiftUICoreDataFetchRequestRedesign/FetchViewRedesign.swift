@@ -30,14 +30,15 @@ struct FetchViewRedesign: View {
     var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
         return Binding {
             sortDescriptors
-        } set: { value in
-            ascending = value.first?.order == .forward
+        } set: { value, transaction in
+            withTransaction(transaction) {
+                ascending = value.first?.order == .forward
+            }
         }
     }
     @Environment(\.managedObjectContext) var viewContext
-    @State var items: [Item] = []
     
-    struct AscendingFetch: Fetch<Item> {
+    struct AscendingFetch: FetchRequestConfiguring<Item> {
         let ascending: Bool
         
         func configure(request: NSFetchRequest<Item>) {
@@ -46,40 +47,37 @@ struct FetchViewRedesign: View {
     }
     
     var body: some View {
-        VStack {
-            HStack {
-                Button("ascending ") {
-                    withAnimation {
-                        ascending.toggle()
+        Fetcher(AscendingFetch(ascending: ascending)) { state in
+            let items = state.results
+            VStack {
+                HStack {
+                    Button("ascending ") {
+                        withAnimation {
+                            ascending.toggle()
+                            
+                        }
+                    }
+                    
+                    Button("Update") {
+                        items.first?.timestamp = Date()
+                    }
+                    Button("Delete") {
+                        if let first = items.first {
+                            viewContext.delete(first)
+                        }
                     }
                 }
-                
-                Button("Update") {
-                    items.first?.timestamp = Date()
-                }
-                Button("Delete") {
-                    if let first = items.first {
-                        viewContext.delete(first)
+                Table(items, sortOrder: sortDescriptorsBinding.animation()) {
+                    
+                    TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
+                        ItemRow(item: item)
                     }
-                }
-            }
-            Table(items, sortOrder: sortDescriptorsBinding) {
-                
-                TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
-                    ItemRow(item: item)
-                }
-            }
-        }
-        .fetch(AscendingFetch(ascending: ascending)) { result in // or ModernSortedFetch(sortDescriptors: sortDescriptors)
-            if case let .success(items) = result {
-                withAnimation {
-                    self.items = items
                 }
             }
         }
     }
 }
-    
+
 struct ItemRow: View {
     @ObservedObject var item: Item
     

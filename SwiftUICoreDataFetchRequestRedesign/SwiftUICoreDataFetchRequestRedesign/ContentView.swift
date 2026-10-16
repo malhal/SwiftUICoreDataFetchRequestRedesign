@@ -14,40 +14,42 @@ struct ContentView: View {
     
     @State var counter = 0
     //@State var testChangingContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-    @State var showRedesign = false
+    @State var showRedesign = true
     
     var body: some View {
-        HStack {
-            VStack {
-                Text("Launch on macOS or iPad landscape so sortable table headers appear. First click both headers to change the sort order of both tables, then click increment button. Notice Original loses the modified sort order but Redesign does not.").padding()
-                
-                Button("Increment \(counter)") {
-                    counter += 1
+        NavigationStack {
+            HStack {
+                VStack {
+                    Text("Launch on macOS or iPad landscape so sortable table headers appear. First click both headers to change the sort order of both tables, then click increment button. Notice Original loses the modified sort order but Redesign does not.").padding()
+                    
+                    Button("Increment \(counter)") {
+                        counter += 1
+                    }
+                    Text("Increment counter causes FetchViewOriginal and FetchViewRedesign to be re-init.").padding()
+                    
                 }
-                Text("Increment counter causes FetchViewOriginal and FetchViewRedesign to be re-init.").padding()
-                
+                VStack {
+                    FetchViewOriginal(counter: counter)
+                }
+                VStack {
+                    Button(showRedesign ? "Hide" : "Show") {
+                        showRedesign.toggle()
+                    }
+                    if showRedesign {
+                        FetchViewRedesign(counter: counter)
+                    }
+                }
             }
-            VStack {
-                FetchViewOriginal(counter: counter)
-            }
-            VStack {
-                //                Button(showRedesign ? "Hide" : "Show") {
-                //                    showRedesign.toggle()
-                //                }
-                //                if showRedesign {
-                FetchViewRedesign(counter: counter)
-                //}
-            }
-        }
-        .toolbar {
+            .toolbar {
 #if os(iOS)
-            ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
-            }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    EditButton()
+                }
 #endif
-            ToolbarItem {
-                Button(action: addItem) {
-                    Label("Add Item", systemImage: "plus")
+                ToolbarItem {
+                    Button(action: addItem) {
+                        Label("Add Item", systemImage: "plus")
+                    }
                 }
             }
         }

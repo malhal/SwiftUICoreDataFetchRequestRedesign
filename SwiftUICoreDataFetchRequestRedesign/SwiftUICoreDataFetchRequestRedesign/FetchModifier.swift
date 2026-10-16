@@ -2,52 +2,88 @@
 //  FetchModifier.swift
 //  SwiftUICoreDataFetchRequestRedesign
 //
-//  Created by Malcolm Hall on 12/10/2026.
+//  Created by Malcolm Hall on 15/10/2026.
 //
+
 import CoreData
 import SwiftUI
+import Combine
 
-public struct FetchModifier<ResultType: NSManagedObject, ID: Equatable>: ViewModifier {
-    let id: ID
-    let configure: (NSFetchRequest<ResultType>) -> Void
-    let handleResults: (Result<[ResultType], Error>) -> Void
+public protocol Fetch<ResultType>: Equatable {
+    associatedtype ResultType: NSManagedObject
+    func configure(request: NSFetchRequest<ResultType>)
+}
+
+public struct ModernSortedFetch<ResultType: NSManagedObject>: Fetch {
+    public var sortDescriptors: [SortDescriptor<ResultType>]
+    
+    public init(sortDescriptors: [SortDescriptor<ResultType>] = []) {
+        self.sortDescriptors = sortDescriptors
+    }
+    
+    public func configure(request: NSFetchRequest<ResultType>) {
+        request.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
+    }
+}
+
+public struct FetchModifier<F: Fetch>: ViewModifier {
+    
+    public let fetch: F
+    public let handleResults: (Result<[F.ResultType], Error>) -> Void
     
     @Environment(\.managedObjectContext) private var context
-    @StateObject private var observer = FetchObserver()
+    @State private var observer = FetchObserver()
+    
+    private struct Trigger: Equatable {
+        let context: NSManagedObjectContext
+        let fetch: F
+    }
     
     public func body(content: Content) -> some View {
         content
-        // Context change (or initial load) creates a fresh FRC
-            .onChange(of: context, initial: true) { _, _ in
-                let request = NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? "\(ResultType.self)")
-                configure(request)
-                observer.frc = NSFetchedResultsController<ResultType>(fetchRequest: request, managedObjectContext: context, sectionNameKeyPath: nil, cacheName: nil)
-                fetchAndHandleResults()
+            .onChange(of: observer.changeCount) {
+                handleResults(.success(observer.frc?.fetchedObjects as? [F.ResultType] ?? []))
             }
-        // ID change reuses the existing FRC and just fetches
-            .onChange(of: id) { _, _ in
-                configure(observer.frc.fetchRequest)
-                fetchAndHandleResults()
+            .onChange(of: Trigger(context: context, fetch: fetch), initial: true) { old, new in
+                // something changed that requires re-fetch
+                // if context changed then need a new frc
+                
+                let frc: NSFetchedResultsController<F.ResultType>
+                
+                if let existingFRC = observer.frc, existingFRC.managedObjectContext == new.context {
+                    frc = existingFRC
+                }
+                else {
+                    let fr = NSFetchRequest<F.ResultType>(entityName: F.ResultType.entity().name ?? "\(F.ResultType.self)")
+                    fr.sortDescriptors = []
+                    frc = NSFetchedResultsController(
+                        fetchRequest: fr,
+                        managedObjectContext: new.context,
+                        sectionNameKeyPath: nil,
+                        cacheName: nil
+                    )
+                    observer.frc = frc
+                }
+                new.fetch.configure(request: frc.fetchRequest)
+                let result = Result {
+                    try frc.performFetch()
+                    return frc.fetchedObjects ?? []
+                }
+                handleResults(result)
             }
-            .onReceive(observer.objectWillChange) {
-                handleResults(.success(observer.frc.fetchedObjects ?? []))
-            }
+        
     }
     
-    func fetchAndHandleResults() {
-        do {
-            try observer.frc.performFetch()
-            handleResults(.success(observer.frc.fetchedObjects ?? []))
-        } catch {
-            handleResults(.failure(error))
-        }
-    }
-    
-    class FetchObserver: NSObject, NSFetchedResultsControllerDelegate, ObservableObject {
-        var frc: NSFetchedResultsController<ResultType>! {
+    @Observable
+    class FetchObserver: NSObject, NSFetchedResultsControllerDelegate {
+        
+        var changeCount = 0
+        
+        @ObservationIgnored
+        var frc: NSFetchedResultsController<F.ResultType>? {
             didSet {
                 oldValue?.delegate = nil
-                frc.delegate = self
+                frc?.delegate = self
             }
         }
         
@@ -55,6 +91,7 @@ public struct FetchModifier<ResultType: NSManagedObject, ID: Equatable>: ViewMod
             super.init()
         }
         
+        @ObservationIgnored
         private var hasStructuralChanges = false
         
         public func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
@@ -85,19 +122,21 @@ public struct FetchModifier<ResultType: NSManagedObject, ID: Equatable>: ViewMod
             // 2. Prepare for the next transaction
             hasStructuralChanges = false
             
-            objectWillChange.send()
+            changeCount += 1
+        }
+        
+        deinit {
+            print("deinit")
         }
         
     }
 }
 
 public extension View {
-    func fetch<ResultType: NSManagedObject, ID: Equatable>(
-        of: ResultType.Type,
-        id: ID,
-        configure: @escaping (NSFetchRequest<ResultType>) -> Void,
-        results: @escaping (Result<[ResultType], Error>) -> Void
+    func fetch<F: Fetch>(
+        _ fetch: F,
+        results: @escaping (Result<[F.ResultType], Error>) -> Void
     ) -> some View {
-        modifier(FetchModifier(id: id, configure: configure, handleResults: results))
+        modifier(FetchModifier(fetch: fetch, handleResults: results))
     }
 }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import Combine
 
 struct FetchViewRedesign: View {
     
@@ -36,17 +37,20 @@ struct FetchViewRedesign: View {
     @Environment(\.managedObjectContext) var viewContext
     @State var items: [Item] = []
     
+    struct AscendingFetch: Fetch<Item> {
+        let ascending: Bool
+        func configure(request: NSFetchRequest<ResultType>) {
+            request.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
+        }
+    }
+    
     var body: some View {
         VStack {
-            //   let result = self.result
-            // let items = result.objects
-            
             HStack {
-                Button("ascending \(ascending.description)") {
-                    //     withAnimation {
-                    ascending.toggle()
-                    //     }
-                    
+                Button("ascending ") {
+                    withAnimation {
+                        ascending.toggle()
+                    }
                 }
                 
                 Button("Update") {
@@ -65,20 +69,12 @@ struct FetchViewRedesign: View {
                 }
             }
         }
-        .fetch(of: Item.self, id: ascending) { request in
-            request.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
-        } results: { result in
+        .fetch(AscendingFetch(ascending: ascending)) { result in // or ModernSortedFetch(sortDescriptors: sortDescriptors)
             if case let .success(items) = result {
                 withAnimation {
                     self.items = items
                 }
             }
-//            switch result {
-//                case .success(let results):
-//                    
-//                default:
-//                    break
-//            }
         }
     }
 }
@@ -90,5 +86,3 @@ struct ItemRow: View {
         Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
     }
 }
-
-

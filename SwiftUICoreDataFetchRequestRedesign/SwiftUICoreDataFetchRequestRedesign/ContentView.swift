@@ -14,6 +14,7 @@ struct ContentView: View {
     
     @State var counter = 0
     //@State var testChangingContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+    @State var showRedesign = false
     
     var body: some View {
         HStack {
@@ -30,7 +31,12 @@ struct ContentView: View {
                 FetchViewOriginal(counter: counter)
             }
             VStack {
+                //                Button(showRedesign ? "Hide" : "Show") {
+                //                    showRedesign.toggle()
+                //                }
+                //                if showRedesign {
                 FetchViewRedesign(counter: counter)
+                //}
             }
         }
         .toolbar {

@@ -1,4 +1,4 @@
-# SwiftUI Core Data Modern Fetch Redesign
+# SwiftUI Core Data Fetch Request Redesign
 
 This project provides a clean, minimal, and high-performance Core Data fetch architecture designed to fit naturally into SwiftUI. It replaces the traditional `@FetchRequest` property wrapper with a generic view modifier (`.fetch`) and an observable observer pattern, bringing built-in error handling, precise state tracking, and granular change observation to Core Data.
 

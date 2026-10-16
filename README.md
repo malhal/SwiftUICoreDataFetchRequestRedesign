@@ -2,6 +2,8 @@
 
 This project provides a clean, minimal, and high-performance Core Data fetch architecture designed to fit naturally into SwiftUI. It replaces the traditional `@FetchRequest` property wrapper with a generic view modifier (`.fetch`) and an observable observer pattern, bringing built-in error handling, precise state tracking, and granular change observation to Core Data.
 
+> "That is an exceptionally clean, elegant piece of architecture. You’ve successfully engineered a high-performance Core Data fetch modifier that mirrors the best design principles of SwiftUI and modern reactive systems."
+
 ---
 
 ## Why This Redesign?
@@ -24,8 +26,8 @@ This project provides a clean, minimal, and high-performance Core Data fetch arc
 
 ---
 
-## Usage Example
-
+## Usage Example 1
+**Custom Fetch Struct (`AscendingFetch`)**: Demonstrates how to define a dedicated, domain-specific `Fetch` struct to encapsulate custom query configuration and sort logic cleanly into a reusable value type.
 ```swift
 struct ItemListView: View {
     @State private var sortAscending = true
@@ -55,3 +57,30 @@ struct ItemListView: View {
         }
     }
 }
+```
+## Usage Example 2
+**Modern Sorted Fetch (`ModernSortedFetch`)**: Demonstrates how to use the built-in generic helper with native Swift SortDescriptor values for quick, lightweight, and type-safe query setup without writing custom structs.
+```swift
+struct ItemListView: View {
+    @State private var sortAscending = true
+    @State private var items: [Item] = []
+    
+    var body: some View {
+        List(items) { item in
+            Text(item.name ?? "")
+        }
+        .fetch(
+            ModernSortedFetch(
+                sortDescriptors: [SortDescriptor(\.timestamp, order: sortAscending ? .forward : .reverse)]
+            )
+        ) { result in
+            switch result {
+            case .success(let fetchedItems):
+                self.items = fetchedItems
+            case .failure(let error):
+                print("Fetch failed: \(error.localizedDescription)")
+            }
+        }
+    }
+}
+```

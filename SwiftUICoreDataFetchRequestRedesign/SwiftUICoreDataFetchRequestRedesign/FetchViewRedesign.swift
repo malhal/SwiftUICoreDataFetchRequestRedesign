@@ -39,7 +39,8 @@ struct FetchViewRedesign: View {
     
     struct AscendingFetch: Fetch<Item> {
         let ascending: Bool
-        func configure(request: NSFetchRequest<ResultType>) {
+        
+        func configure(request: NSFetchRequest<Item>) {
             request.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
         }
     }

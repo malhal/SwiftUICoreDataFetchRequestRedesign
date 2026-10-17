@@ -61,6 +61,9 @@ struct FetchViewRedesign: View {
                     Button("Delete") {
                         if let first = items.first {
                             viewContext.delete(first)
+                            withAnimation {
+                                viewContext.processPendingChanges()
+                            }
                         }
                     }
                 }
@@ -79,6 +82,6 @@ struct ItemRow: View {
     @ObservedObject var item: Item
     
     var body: some View {
-        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+        Text(item.timestamp ?? .distantPast, format: Date.FormatStyle(date: .numeric, time: .standard))
     }
 }

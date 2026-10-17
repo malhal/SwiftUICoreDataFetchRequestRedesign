@@ -41,6 +41,28 @@ The underlying `FetchObserver` explicitly ignores `.update` delegate events, tra
 
 ---
 
+## Animation & Transaction Behavior
+
+Understanding how animations interact with this architecture ensures smooth visual transitions for both local user interactions and background synchronization:
+
+### 1. Local Actions & Uncommitted Changes (`processPendingChanges`)
+
+Because Core Data operations are asynchronous by default, uncommitted in-memory insertions or deletions will normally close their `withAnimation` transaction block before the fetched results controller fires its delegate.
+
+* To force an immediate synchronous evaluation so that uncommitted local inserts animate smoothly, call `viewContext.processPendingChanges()` inside your local action block.
+* Alternatively, you can omit the save and let uncommitted updates refresh the UI reactively.
+
+### 2. Background and External Updates
+
+* **Quiet by Default:** Background updates (such as CloudKit syncs or data imports) update silently without animations. This prevents "sync storms," UI stutter, and abrupt layout jumps while users are interacting with the app.
+* **Custom Background Animations:** If background changes *do* need to animate into view, you can wrap the context merge process (`viewContext.mergeChanges(...)`) inside an explicit `withAnimation` block at the boundary where external saves enter the context.
+
+### 3. Bindings & Parameter Changes
+
+* State-driven changes—such as tapping a sort toggle bound via `withAnimation`—trigger a re-evaluation of the fetch configuration inside the view's `body` render pass. Because the resulting update flows through the active transaction, row re-orderings animate smoothly alongside the control itself.
+
+---
+
 ## Usage Example
 
 ```swift
@@ -49,6 +71,7 @@ import CoreData
 
 struct ItemListView: View {
     @State private var sortAscending = true
+    @Environment(\.managedObjectContext) private var viewContext
     
     // Define a domain-specific configuration conforming to FetchRequestConfiguring
     struct SortedItems: FetchRequestConfiguring<Item> {

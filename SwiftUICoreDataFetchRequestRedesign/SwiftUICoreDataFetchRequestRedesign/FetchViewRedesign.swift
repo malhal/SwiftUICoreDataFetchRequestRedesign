@@ -7,7 +7,6 @@
 
 import SwiftUI
 import CoreData
-import Combine
 
 struct FetchViewRedesign: View {
     
@@ -38,7 +37,7 @@ struct FetchViewRedesign: View {
     }
     @Environment(\.managedObjectContext) var viewContext
     
-    struct AscendingFetch: FetchRequestConfiguring<Item> {
+    struct SortedItems: FetchRequestConfiguring<Item> {
         let ascending: Bool
         
         func configure(request: NSFetchRequest<Item>) {
@@ -47,14 +46,12 @@ struct FetchViewRedesign: View {
     }
     
     var body: some View {
-        Fetcher(AscendingFetch(ascending: ascending)) { state in
-            let items = state.results
+        FetchedResultsView(SortedItems(ascending: ascending)) { items, _ in
             VStack {
                 HStack {
                     Button("ascending ") {
                         withAnimation {
                             ascending.toggle()
-                            
                         }
                     }
                     

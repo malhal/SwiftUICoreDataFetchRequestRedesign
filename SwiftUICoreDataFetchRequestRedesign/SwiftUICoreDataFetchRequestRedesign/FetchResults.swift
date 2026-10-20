@@ -7,7 +7,9 @@
 import CoreData
 
 @MainActor
-struct FetchResults<T: NSManagedObject> {
+struct FetchResults<T: NSManagedObject> where T: Sendable {
+    
+    @MainActor
     static func updates(
         for request: NSFetchRequest<T>,
         in context: NSManagedObjectContext

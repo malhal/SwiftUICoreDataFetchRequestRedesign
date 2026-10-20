@@ -9,13 +9,13 @@ import CoreData
 import SwiftUI
 import Combine
 
-public protocol FetchRequestConfiguring<ResultType>: Equatable {
+public protocol FetchRequestConfiguring<ResultType>: Equatable, Sendable {
     associatedtype ResultType: NSManagedObject
     func configure(request: NSFetchRequest<ResultType>)
 }
 
-
-public struct ModernSortedFetch<ResultType: NSManagedObject>: FetchRequestConfiguring {
+@MainActor
+public struct ModernSortedFetch<ResultType: NSManagedObject>: @preconcurrency FetchRequestConfiguring {
     
     public var sortDescriptors: [SortDescriptor<ResultType>]
     
@@ -35,11 +35,12 @@ public extension ModernSortedFetch {
     }
     
     /// Convenience helper for a single sort descriptor.
-    static func sorted(by keyPath: KeyPath<ResultType, some Comparable>, order: SortOrder = .forward) -> ModernSortedFetch {
+    static func sorted(by keyPath: KeyPath<ResultType, some Comparable> & Sendable, order: SortOrder = .forward) -> ModernSortedFetch {
         ModernSortedFetch(sortDescriptors: [SortDescriptor(keyPath, order: order)])
     }
 }
 
+@MainActor
 public struct FetchedResultsView<F, Content> where F: FetchRequestConfiguring {
 
     private let fetch: F
@@ -66,8 +67,9 @@ extension FetchedResultsView: View where Content: View {
     }
 }
 
+@MainActor
 @Observable
-class FetchObserver<F: FetchRequestConfiguring>: NSObject, NSFetchedResultsControllerDelegate {
+class FetchObserver<F: FetchRequestConfiguring>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate {
     
     var error: Error?
     var results: [F.ResultType] = []

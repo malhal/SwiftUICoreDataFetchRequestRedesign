@@ -8,6 +8,7 @@
 import SwiftUI
 import CoreData
 import Combine
+import SwiftData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -61,6 +62,15 @@ struct ContentView: View {
         withAnimation {
             viewContext.processPendingChanges() // required for row animation
         }
+    }
+}
+
+@Model
+class Item2 {
+    var text: String?
+    
+    init() {
+        
     }
 }
 

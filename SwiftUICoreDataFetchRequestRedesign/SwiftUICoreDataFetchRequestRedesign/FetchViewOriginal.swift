@@ -28,20 +28,9 @@ struct FetchViewOriginal: View {
             ascending.toggle()
         }
         FetchedTable(ascending: $ascending)
-    }
-}
-
-
-extension FetchedTable {
-    init(ascending: Binding<Bool>) {
-        let sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending.wrappedValue ? .forward : .reverse)]
-        let fetch = FetchRequest(sortDescriptors: sortDescriptors, animation: .default)
-        let sortDescriptorsBinding = Binding {
-            sortDescriptors
-        } set: { v in
-            ascending.wrappedValue = v.first?.order == .forward
-        }
-        self.init(items: fetch, sortDescriptors: sortDescriptorsBinding)
+            .transaction(value: counter) { transaction in
+                counter2 += 1
+            }
     }
 }
 
@@ -49,11 +38,20 @@ struct FetchedTable: View {
     @FetchRequest var items: FetchedResults<Item>
     @Binding var sortDescriptors: [SortDescriptor<Item>]
     
+    init(ascending: Binding<Bool>) {
+        let sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending.wrappedValue ? .forward : .reverse)]
+        _items = FetchRequest(sortDescriptors: sortDescriptors, animation: .default)
+        _sortDescriptors = Binding {
+            sortDescriptors
+        } set: { v in
+            ascending.wrappedValue = v.first?.order == .forward
+        }
+    }
+    
     var body: some View {
         Table(items, sortOrder: $sortDescriptors) {
             TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
                 Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
-                
             }
         }
     }

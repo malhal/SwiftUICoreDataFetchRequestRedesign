@@ -14,7 +14,7 @@ struct FetchViewOriginal: View {
     let counter: Int
     
     // source of truth for the sort
-    @State private var ascending = true
+    @State private var ascending = false
 
     @State private var counter2 = 0
    
@@ -28,9 +28,6 @@ struct FetchViewOriginal: View {
             ascending.toggle()
         }
         FetchedTable(ascending: $ascending)
-            .transaction(value: counter) { transaction in
-                counter2 += 1
-            }
     }
 }
 

@@ -7,48 +7,82 @@
 import SwiftUI
 import CoreData
 
-public protocol FetchRequestConfiguring<ResultType>: Equatable, Sendable {
+public protocol NSFetchRequestRepresentable<ResultType>: Equatable, Sendable {
     associatedtype ResultType: NSManagedObject
-    func configure(request: NSFetchRequest<ResultType>)
+    
+    func makeNSFetchRequest() -> NSFetchRequest<ResultType>
+    func updateNSFetchRequest(_ request: NSFetchRequest<ResultType>)
 }
 
-@MainActor
-public struct ModernSortedFetch<ResultType: NSManagedObject>: @preconcurrency SortDescriptorConfiguring {
-    
-    public var sortDescriptors: [SortDescriptor<ResultType>]
-    
-    public init(sortDescriptors: [SortDescriptor<ResultType>] = []) {
-        self.sortDescriptors = sortDescriptors
-    }
-    
-    public func configure(request: NSFetchRequest<ResultType>) {
-        request.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
-    }
-}
+//@MainActor
+//public struct ModernSortedFetch<ResultType: NSManagedObject>: @preconcurrency SortDescriptorConfiguring {
+//    
+//    public var sortDescriptors: [SortDescriptor<ResultType>]
+//    
+//    public init(sortDescriptors: [SortDescriptor<ResultType>] = []) {
+//        self.sortDescriptors = sortDescriptors
+//    }
+//    
+//    public func updateNSFetchRequest(_ request: NSFetchRequest<ResultType>) {
+//        request.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
+//    }
+//}
+//
+//public extension ModernSortedFetch {
+//    /// Creates a fetch configuration with the specified Swift `SortDescriptor`s.
+//    static func sortDescriptors(_ descriptors: [SortDescriptor<ResultType>]) -> ModernSortedFetch {
+//        ModernSortedFetch(sortDescriptors: descriptors)
+//    }
+//    
+//    /// Convenience helper for a single sort descriptor.
+//    static func sorted(by keyPath: KeyPath<ResultType, some Comparable> & Sendable, order: SortOrder = .forward) -> ModernSortedFetch {
+//        ModernSortedFetch(sortDescriptors: [SortDescriptor(keyPath, order: order)])
+//    }
+//}
 
-public extension ModernSortedFetch {
-    /// Creates a fetch configuration with the specified Swift `SortDescriptor`s.
-    static func sortDescriptors(_ descriptors: [SortDescriptor<ResultType>]) -> ModernSortedFetch {
-        ModernSortedFetch(sortDescriptors: descriptors)
-    }
-    
-    /// Convenience helper for a single sort descriptor.
-    static func sorted(by keyPath: KeyPath<ResultType, some Comparable> & Sendable, order: SortOrder = .forward) -> ModernSortedFetch {
-        ModernSortedFetch(sortDescriptors: [SortDescriptor(keyPath, order: order)])
-    }
-}
+// cant because when fetch fails they lose the objects
+//public struct FetchedResults2<ResultType: NSManagedObject>: RandomAccessCollection {
+//    let frc: NSFetchedResultsController<ResultType>
+//    
+//    // MARK: - Collection Conformance
+//    
+//    public var startIndex: Int {
+//        return 0
+//    }
+//    
+//    public var endIndex: Int {
+//        return frc.fetchedObjects?.count ?? 0
+//    }
+//    
+//    public subscript(position: Int) -> ResultType {
+//        guard let objects = frc.fetchedObjects else {
+//            fatalError("Attempted to access index \(position) on unfetched NSFetchedResultsController.")
+//        }
+//        return objects[position]
+//    }
+//    
+//    public func index(after i: Int) -> Int {
+//        return i + 1
+//    }
+//    
+//    public func index(before i: Int) -> Int {
+//        return i - 1
+//    }
+//}
 
 @MainActor
 @Observable
-class FetchObserver<F: FetchRequestConfiguring>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate {
-    typealias State = (results: [F.ResultType], error: Error?)
+public final class FetchedResultsObserver<F: NSFetchRequestRepresentable>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate {
+    
+    
+    public typealias State = (results: [F.ResultType], error: Error?)
     //var error: Error?
     //var results: [F.ResultType] = []
     
     private var state: State = ([], nil)
     
     @ObservationIgnored
-    private var lastFetch: F?
+    private var lastRepresentable: F?
     
     @ObservationIgnored
     var fetchedResultsController: NSFetchedResultsController<F.ResultType>? {
@@ -66,18 +100,19 @@ class FetchObserver<F: FetchRequestConfiguring>: NSObject, @preconcurrency NSFet
     }
     
     // if change context should we clear the results regardless if there is an error?
-    public func update(managedObjectContext: NSManagedObjectContext, fetch: F) -> State {
+    public func update(managedObjectContext: NSManagedObjectContext, representable: F) -> State {
         let activeFRC: NSFetchedResultsController<F.ResultType>
         
         if let existingFRC = fetchedResultsController,
            existingFRC.managedObjectContext == managedObjectContext {
-            if fetch == lastFetch {
+            if representable == lastRepresentable {
                 return state // this sets up observation
             }
             activeFRC = existingFRC
+            representable.updateNSFetchRequest(existingFRC.fetchRequest)
         } else {
-            let fr = NSFetchRequest<F.ResultType>(entityName: F.ResultType.entity().name ?? "\(F.ResultType.self)")
-            fr.sortDescriptors = []
+            let fr = representable.makeNSFetchRequest()
+            representable.updateNSFetchRequest(fr)
             activeFRC = NSFetchedResultsController(
                 fetchRequest: fr,
                 managedObjectContext: managedObjectContext,
@@ -87,8 +122,8 @@ class FetchObserver<F: FetchRequestConfiguring>: NSObject, @preconcurrency NSFet
             fetchedResultsController = activeFRC
         }
         
-        lastFetch = fetch
-        fetch.configure(request: activeFRC.fetchRequest)
+        lastRepresentable = representable
+      
         
         // silently update the observable property
         do {

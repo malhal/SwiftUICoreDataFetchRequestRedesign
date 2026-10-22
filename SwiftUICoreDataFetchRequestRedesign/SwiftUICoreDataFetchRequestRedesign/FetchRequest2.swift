@@ -11,28 +11,26 @@ import SwiftUI
 import CoreData
 import Combine
 
-public protocol SortDescriptorConfiguring: FetchRequestConfiguring {
-    init(sortDescriptors: [SortDescriptor<ResultType>])
-}
-
-
-
-extension FetchRequest2 where F: SortDescriptorConfiguring {
-    public init(sortDescriptors: [SortDescriptor<F.ResultType>]) {
-        self.init(F(sortDescriptors: sortDescriptors))
-    }
-}
+//public protocol SortDescriptorConfiguring: FetchRequestConfiguring {
+//    init(sortDescriptors: [SortDescriptor<ResultType>])
+//}
+//
+//extension FetchRequest2 where F: SortDescriptorConfiguring {
+//    public init(sortDescriptors: [SortDescriptor<F.ResultType>]) {
+//        self.init(F(sortDescriptors: sortDescriptors))
+//    }
+//}
 
 @MainActor
 @propertyWrapper
-public struct FetchRequest2<F>: @preconcurrency DynamicProperty where F: FetchRequestConfiguring {
+public struct FetchRequest2<Representable>: @preconcurrency DynamicProperty where Representable: NSFetchRequestRepresentable {
     
     @Environment(\.managedObjectContext) private var viewContext
-    @State private var observer = FetchObserver<F>()
-    private let fetch: F
+    @State private var observer = FetchedResultsObserver<Representable>()
+    private let representable: Representable
     
-    public init(_ fetch: F) {
-        self.fetch = fetch
+    public init(_ representable: Representable) {
+        self.representable = representable
     }
     
     // Modern SortDescriptors (SwiftUI standard)
@@ -54,13 +52,10 @@ public struct FetchRequest2<F>: @preconcurrency DynamicProperty where F: FetchRe
 //    }
 //    
     // 💡 Pure, beautiful implementation alignment
-    public private(set) var  wrappedValue: [F.ResultType] = []
-    public private(set) var lastError: Error?
+    public private(set) var wrappedValue: FetchedResultsObserver<Representable>.State = ([], nil)
     
     public mutating func update() {
-        let state = observer.update(managedObjectContext: viewContext, fetch: fetch)
-        wrappedValue = state.results
-        lastError = state.error
+        wrappedValue = observer.update(managedObjectContext: viewContext, representable: representable)
     }
 }
 

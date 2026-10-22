@@ -10,20 +10,20 @@ import SwiftUI
 import Combine
 
 @MainActor
-public struct FetchedResultsView<F, Content> where F: FetchRequestConfiguring {
+public struct FetchedResultsView<F, Content> where F: NSFetchRequestRepresentable {
 
-    private let fetch: F
+    private let representable: F
     private var content: ([F.ResultType], Error?) -> Content
     
-    @State private var observer = FetchObserver<F>()
+    @State private var observer = FetchedResultsObserver<F>()
     
     @Environment(\.managedObjectContext) private var viewContext
     
     public init(
-        _ fetch: F,
+        _ representable: F,
         @ViewBuilder content: @escaping ([F.ResultType], Error?) -> Content
     ) {
-        self.fetch = fetch
+        self.representable = representable
         self.content = content
     }
 }
@@ -31,7 +31,7 @@ public struct FetchedResultsView<F, Content> where F: FetchRequestConfiguring {
 // extension allows skipping the return in body
 extension FetchedResultsView: View where Content: View {
     public var body: some View {
-        let state = observer.update(managedObjectContext: viewContext, fetch: fetch)
-        content(state.0, state.1)
+        let state = observer.update(managedObjectContext: viewContext, representable: representable)
+        content(state.results, state.error)
     }
 }

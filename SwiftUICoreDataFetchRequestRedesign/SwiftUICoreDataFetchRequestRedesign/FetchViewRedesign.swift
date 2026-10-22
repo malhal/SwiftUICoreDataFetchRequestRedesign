@@ -12,6 +12,7 @@ struct FetchViewRedesign: View {
     
     @State private var ascending: Bool = true
     
+    
     // source of truth for the sort can easily be persisted
     // @AppStorage("Ascending") private var ascendingStored = true
     

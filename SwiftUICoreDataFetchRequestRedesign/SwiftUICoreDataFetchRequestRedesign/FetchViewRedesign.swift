@@ -24,9 +24,11 @@ struct FetchViewRedesign: View {
     
     @Environment(\.managedObjectContext) var viewContext
     
-    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
+    @State var items = FetchedResults2<Item>()
+    
+    var sortDescriptorsBinding: Binding<[KeyPathComparator<Item>]> {
         Binding {
-            [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+            [KeyPathComparator(\Item.safeTimestamp, order: ascending ? .forward : .reverse)]
         } set: { value, transaction in
             withTransaction(transaction) {
                 ascending = value.first?.order == .forward
@@ -34,55 +36,85 @@ struct FetchViewRedesign: View {
         }
     }
     
-    @State private var observer = FetchedResultsObserver<SortedItems>()
+    @State private var sortOrder: [KeyPathComparator<Item>] = [KeyPathComparator(\.timestamp, order: .forward)]
     
     var body: some View {
-        FetchedResultsView(SortedItems(ascending: ascending)) { items, _ in
-            VStack {
-                HStack {
-                    Button("Recompute \(counter2)") {
-                        counter2 += 1
-                    }
-                    Button("ascending ") {
-                        withAnimation {
-                            ascending.toggle()
-                        }
-                    }
+        //FetchedResultsView(SortedItems(ascending: ascending)) { items, _ in
+        VStack {
+            HStack {
+                Button("Recompute \(counter2)") {
+                    counter2 += 1
                 }
-                // FetchedTable2(ascending: $ascending)
-                
-                Button("Update") {
-                    items.first?.timestamp = Date()
-                }
-                Button("Delete") {
-                    if let first = items.first {
-                        viewContext.delete(first)
-                        withAnimation {
-                            viewContext.processPendingChanges()
-                        }
-                    }
-                }
-                
-                Table(items, sortOrder: sortDescriptorsBinding.animation()) {
-                    TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
-                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
-                        
+                Button("ascending ") {
+                    withAnimation {
+                        ascending.toggle()
                     }
                 }
             }
+            // FetchedTable2(ascending: $ascending)
+            
+            Button("Update") {
+                items.first?.timestamp = Date()
+            }
+            Button("Delete") {
+                if let first = items.first {
+                    viewContext.delete(first)
+                    withAnimation {
+                        viewContext.processPendingChanges()
+                    }
+                }
+            }
+            
+            Table(of: Item.self, sortOrder: sortDescriptorsBinding) {
+                TableColumn("Timestamp", value: \Item.safeTimestamp) { item in
+                    Text(item.safeTimestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                }
+                
+            } rows: {
+                // The table structure and headers paint immediately.
+                // When `items` is nil, it renders empty rows until the task finishes.
+             
+                ForEach(items) { item in
+                    TableRow(item)
+                    //Text(item.safeTimestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                }
+            }
+        }
+        .fetch(SortedItems(ascending: ascending)) { result in
+            withAnimation {
+                // self.items = nil
+                self.items = result
+            }
+        } onError: { error in
+            // do we need to change the sort back?
         }
     }
+    
+    
+    
+    
 }
+
+extension Item {
+    // Non-optional convenience computed property for UI sorting/display safely
+    var safeTimestamp: Date {
+        timestamp ?? .distantPast
+    }
+    
+    public var id: ObjectIdentifier {
+        ObjectIdentifier(self)
+    }
+}
+
 struct SortedItems: NSFetchRequestRepresentable {
     let ascending: Bool
     
     func makeNSFetchRequest() -> NSFetchRequest<Item> {
-        Item.fetchRequest()
+        let fr = Item.fetchRequest()
+        fr.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
+        return fr
     }
     
-    func updateNSFetchRequest(_ request: NSFetchRequest<Item>) {
-        request.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
-    }
 }
 
 struct ItemRow: View {

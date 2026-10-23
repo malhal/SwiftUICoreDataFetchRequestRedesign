@@ -53,3 +53,46 @@ struct FetchedTable: View {
         }
     }
 }
+
+//struct FetchedTable: View {
+//    // 1. Declare the property wrapper with SectionIdentifier (String) and Result (Item)
+//    @SectionedFetchRequest<String?, Item> var sections: SectionedFetchResults<String?, Item>
+//    @Binding var sortDescriptors: [SortDescriptor<Item>]
+//    
+//    init(ascending: Binding<Bool>) {
+//        let order: Foundation.SortOrder = ascending.wrappedValue ? .forward : .reverse
+//        
+//        // CRITICAL CORE DATA RULE:
+//        // The FIRST sort descriptor MUST match the section identifier property!
+//        let sortDescriptors = [
+//            SortDescriptor(\Item.text, order: order),
+//            SortDescriptor(\Item.timestamp, order: order)
+//        ]
+//        
+//        _sections = SectionedFetchRequest(
+//            sectionIdentifier: \.text,
+//            sortDescriptors: sortDescriptors,
+//            animation: .default
+//        )
+//        
+//        _sortDescriptors = Binding {
+//            sortDescriptors
+//        } set: { v in
+//            ascending.wrappedValue = v.first?.order == .forward
+//        }
+//    }
+//    
+//    var body: some View {
+//        let x = _sections.wrappedValue
+//        // Sections can now be iterated over to render hierarchical tables or lists
+//        List {
+//            ForEach(sections) { section in
+//                Section(header: Text("Category: \(section.id)")) {
+//                    ForEach(section) { item in
+//                        Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+//                    }
+//                }
+//            }
+//        }
+//    }
+//}

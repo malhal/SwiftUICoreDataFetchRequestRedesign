@@ -14,7 +14,7 @@ public protocol NSFetchRequestRepresentable<ResultType>: Equatable, Sendable {
 }
 
 @MainActor
-public struct ModernSortedFetch<ResultType: NSManagedObject>: NSFetchRequestRepresentable {
+public struct ModernSortedFetch<ResultType: NSManagedObject>: @preconcurrency NSFetchRequestRepresentable {
 
     public var sortDescriptors: [SortDescriptor<ResultType>]
 
@@ -22,7 +22,7 @@ public struct ModernSortedFetch<ResultType: NSManagedObject>: NSFetchRequestRepr
         self.sortDescriptors = sortDescriptors
     }
 
-    public func makeNSFetchRequest(_ request: NSFetchRequest<ResultType>) -> NSFetchRequest<ResultType> {
+    public func makeNSFetchRequest() -> NSFetchRequest<ResultType> {
         let fr = NSFetchRequest<ResultType>(entityName: String(describing: ResultType.self))
         fr.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
         return fr

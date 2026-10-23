@@ -11,7 +11,7 @@ This project provides a clean, minimal, and high-performance Core Data fetch arc
 Traditional property wrappers like `@FetchRequest` enforce strict compile-time type requirements at the property declaration site. When working with a generic configuration protocol (`NSFetchRequestRepresentable`), attempting to drive a property wrapper via an associated type introduces severe ergonomic hurdles:
 
 * **The Syntax Barrier**: Declaring a property wrapper with generic constraints on a child view makes standard `@` syntax clumsy or entirely impossible without messy type-erasure.
-* **Lifecycle & Scoping**: A view modifier (`.fetch(...)`) acts as a natural SwiftUI boundary. It scopes the `ResultsObserver` lifecycle tightly to the view's appearance and passes strongly-typed results (`FetchedResults2<ResultType>`) directly into a clean closure, aligning with native SwiftUI data-flow patterns.
+* **Lifecycle & Scoping**: A view modifier (`.fetch(...)`) acts as a natural SwiftUI boundary. It scopes the `FetchedResultsObserver lifecycle tightly to the view's appearance and passes strongly-typed results (`FetchedResults2<ResultType>`) directly into a clean closure, aligning with native SwiftUI data-flow patterns.
 
 ### 2. Synchronous Evaluation & Transaction Preservation
 
@@ -23,7 +23,7 @@ Standard `@FetchRequest` does not expose fetch errors or handle execution failur
 
 ### 4. Granular Observation
 
-The underlying `ResultsObserver` explicitly ignores `.update` delegate events, tracking only structural changes (inserts, deletes, moves). This prevents property updates in a single row from triggering expensive collection-wide re-renders.
+The underlying `FetchedResultsObserver explicitly ignores `.update` delegate events, tracking only structural changes (inserts, deletes, moves). This prevents property updates in a single row from triggering expensive collection-wide re-renders.
 
 ---
 
@@ -32,7 +32,7 @@ The underlying `ResultsObserver` explicitly ignores `.update` delegate events, t
 * **`FetchModifier`**: A view modifier that manages the `NSFetchedResultsController` lifecycle and binds observation updates to view rendering.
 * **`NSFetchRequestRepresentable`**: A protocol defining a lightweight, equatable, and sendable configuration blueprint with an associated result type to build an `NSFetchRequest`.
 * **`FetchedResults2`**: A lightweight wrapper conforming to `RandomAccessCollection` and `Equatable` wrapping the underlying fetched objects.
-* **`ResultsObserver`**: An `@Observable` class acting as the `NSFetchedResultsControllerDelegate`, tracking structural updates and managing version bumps reactively.
+* **`FetchedResultsObserver`**: An `@Observable` class acting as the `NSFetchedResultsControllerDelegate`, tracking structural updates and managing version bumps reactively.
 
 ---
 

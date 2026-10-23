@@ -26,7 +26,7 @@ public struct FetchModifier<F: NSFetchRequestRepresentable>: ViewModifier {
         let representable: F
     }
     
-    @State private var observer = ResultsObserver<F.ResultType>()
+    @State private var observer = FetchedResultsObserver<F.ResultType>()
     
     public func body(content: Content) -> some View {
         content
@@ -92,7 +92,7 @@ public struct FetchedResults2<ResultType:NSManagedObject>: nonisolated RandomAcc
 
 @MainActor
 @Observable
-public class ResultsObserver<ResultType: NSManagedObject>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate {
+public class FetchedResultsObserver<ResultType: NSManagedObject>: NSObject, @preconcurrency NSFetchedResultsControllerDelegate {
     
     private(set) var version = 0
     
@@ -106,7 +106,7 @@ public class ResultsObserver<ResultType: NSManagedObject>: NSObject, @preconcurr
     
     override init() {
         super.init()
-        print("ResultsObserver init")
+        print("FetchedResultsObserver init")
     }
     
     @ObservationIgnored
@@ -145,7 +145,7 @@ public class ResultsObserver<ResultType: NSManagedObject>: NSObject, @preconcurr
     
     
     deinit {
-        print("ResultsObserver deinit")
+        print("FetchedResultsObserver deinit")
     }
 }
 

@@ -13,6 +13,22 @@ public protocol NSFetchRequestRepresentable<ResultType>: Equatable, Sendable {
     func makeNSFetchRequest() -> NSFetchRequest<ResultType>
 }
 
+@MainActor
+public struct ModernSortedFetch<ResultType: NSManagedObject>: NSFetchRequestRepresentable {
+
+    public var sortDescriptors: [SortDescriptor<ResultType>]
+
+    public init(sortDescriptors: [SortDescriptor<ResultType>] = []) {
+        self.sortDescriptors = sortDescriptors
+    }
+
+    public func makeNSFetchRequest(_ request: NSFetchRequest<ResultType>) -> NSFetchRequest<ResultType> {
+        let fr = NSFetchRequest<ResultType>(entityName: String(describing: ResultType.self))
+        fr.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
+        return fr
+    }
+}
+
 public struct FetchModifier<F: NSFetchRequestRepresentable>: ViewModifier {
     
     public let representable: F

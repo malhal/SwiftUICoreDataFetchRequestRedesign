@@ -23,7 +23,7 @@ public struct ModernSortedFetch<ResultType: NSManagedObject>: @preconcurrency NS
     }
 
     public func makeNSFetchRequest() -> NSFetchRequest<ResultType> {
-        let fr = NSFetchRequest<ResultType>(entityName: String(describing: ResultType.self))
+        let fr = NSFetchRequest<ResultType>(entityName: ResultType.entity().name ?? String(describing: ResultType.self))
         fr.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
         return fr
     }
@@ -32,7 +32,7 @@ public struct ModernSortedFetch<ResultType: NSManagedObject>: @preconcurrency NS
 public struct FetchModifier<F: NSFetchRequestRepresentable>: ViewModifier {
     
     public let representable: F
-    public let handleResults: (FetchedResults2<F.ResultType>) -> Void
+    public let handleResults: ([F.ResultType]) -> Void
     public let onError: (Error) -> Void
     
     @Environment(\.managedObjectContext) private var context
@@ -47,16 +47,15 @@ public struct FetchModifier<F: NSFetchRequestRepresentable>: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .onChange(of: observer.version) {
-                handleResults(FetchedResults2(results: observer.frc?.fetchedObjects ?? []))
+                handleResults(observer.frc?.fetchedObjects ?? [])
             }
             .onChange(of: Trigger(context: context, representable: representable), initial: true) { old, new in
                 let fr = representable.makeNSFetchRequest()
                 do {
                     let frc = NSFetchedResultsController(fetchRequest: fr, managedObjectContext: new.context, sectionNameKeyPath: nil, cacheName: nil)
                     try frc.performFetch()
-                    frc.delegate = observer
                     observer.frc = frc
-                    handleResults(FetchedResults2(results: frc.fetchedObjects ?? []))
+                    handleResults(frc.fetchedObjects ?? [])
                 }catch {
                     onError(error)
                 }
@@ -168,7 +167,7 @@ public class FetchedResultsObserver<ResultType: NSManagedObject>: NSObject, @pre
 public extension View {
     func fetch<F: NSFetchRequestRepresentable>(
         _ representable: F,
-        handleResults: @escaping (FetchedResults2<F.ResultType>) -> Void,
+        handleResults: @escaping ([F.ResultType]) -> Void,
         onError: @escaping (Error) -> Void,
     ) -> some View {
         modifier(FetchModifier(representable: representable, handleResults: handleResults, onError: onError))

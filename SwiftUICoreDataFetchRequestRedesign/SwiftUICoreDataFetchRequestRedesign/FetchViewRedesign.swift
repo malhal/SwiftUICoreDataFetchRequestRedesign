@@ -24,7 +24,7 @@ struct FetchViewRedesign: View {
     
     @Environment(\.managedObjectContext) var viewContext
     
-    @State var items = FetchedResults2<Item>()
+    @State var items: [Item] = []
     
     var sortDescriptorsBinding: Binding<[KeyPathComparator<Item>]> {
         Binding {
@@ -89,10 +89,6 @@ struct FetchViewRedesign: View {
             // do we need to change the sort back?
         }
     }
-    
-    
-    
-    
 }
 
 extension Item {

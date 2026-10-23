@@ -56,11 +56,11 @@ struct ContentView: View {
         }
         .onAppear {
             
-            let fr = Item.fetchRequest()
-            fr.sortDescriptors = []
-            let frc = NSFetchedResultsController(fetchRequest: fr, managedObjectContext: viewContext, sectionNameKeyPath: nil, cacheName: nil)
-            try? frc.performFetch()
-            print("number \(frc.fetchedObjects?.count ?? -1)")
+//            let fr = Item.fetchRequest()
+//            fr.sortDescriptors = []
+//            let frc = NSFetchedResultsController(fetchRequest: fr, managedObjectContext: viewContext, sectionNameKeyPath: nil, cacheName: nil)
+//            try? frc.performFetch()
+//            print("number \(frc.fetchedObjects?.count ?? -1)")
            // frc.fetchRequest.sortDescriptors = nil
             //frc.fetchRequest.predicate = NSPredicate(format: "timestamp == %@", "")
            // try? frc.performFetch()

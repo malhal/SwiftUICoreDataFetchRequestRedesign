@@ -11,17 +11,26 @@ This project provides a clean, minimal, and high-performance Core Data fetch arc
 Traditional property wrappers like `@FetchRequest` enforce strict compile-time type requirements at the property declaration site. When working with a generic configuration protocol (`NSFetchRequestRepresentable`), attempting to drive a property wrapper via an associated type introduces severe ergonomic hurdles:
 
 * **The Syntax Barrier**: Declaring a property wrapper with generic constraints on a child view makes standard `@` syntax clumsy or entirely impossible without messy type-erasure.
-* **Lifecycle & Scoping**: A view modifier (`.fetch(...)`) acts as a natural SwiftUI boundary. It scopes the `FetchedResultsObserver` lifecycle tightly to the view's appearance and passes strongly-typed results (`FetchedResults2<ResultType>`) directly into a clean closure, aligning with native SwiftUI data-flow patterns.
+* **Lifecycle & Scoping**: A view modifier (`.fetch(...)`) acts as a natural SwiftUI boundary. It scopes the `FetchedResultsObserver` lifecycle tightly to the view's appearance and passes strongly-typed results (`[ResultType]`) directly into a clean closure, aligning with native SwiftUI data-flow patterns.
 
-### 2. Synchronous Evaluation & Transaction Preservation
+### 2. Why `[ResultType]` Instead of a Wrapper Struct (`FetchedResults`)?
+
+Traditional Core Data integrations (like `@FetchRequest`) return a custom collection wrapper (`FetchedResults<T>`) that maintains an internal reference back to the fetch controller. This reference is required so that dynamic query properties (such as bindings to predicates and sort descriptors) can reach into the controller at runtime and mutate them.
+
+In this architecture, that pattern is intentionally eliminated:
+
+* **Driven by Input, Not References:** Your query configuration is defined entirely by the value-type, `Equatable` struct passed directly into the `.fetch(...)` modifier (e.g., `SortedItems(ascending: ascending)`).
+* **Clean Array Delivery:** Because the input struct handles tracking changes and re-evaluating fetches when its properties mutate, the modifier simply delivers a clean, standard array (`[ResultType]`) directly to your closure. This completely removes the need for opaque collection wrappers or internal controller pointers leaking into your view layer.
+
+### 3. Synchronous Evaluation & Transaction Preservation
 
 Evaluates fetches cleanly during state transitions, ensuring that incoming animation transactions (such as `withAnimation` triggered by user toggles or table sort order bindings) flow seamlessly down to view updates without dropping context or triggering stray animation glitches.
 
-### 3. Built-in Error Handling
+### 4. Built-in Error Handling
 
 Standard `@FetchRequest` does not expose fetch errors or handle execution failures gracefully. This architecture exposes explicit error states through the `.fetch(_:, handleResults:, onError:)` modifier, allowing database errors to be handled safely while separating success paths.
 
-### 4. Granular Observation
+### 5. Granular Observation
 
 The underlying `FetchedResultsObserver` explicitly ignores `.update` delegate events, tracking only structural changes (inserts, deletes, moves). This prevents property updates in a single row from triggering expensive collection-wide re-renders.
 
@@ -31,7 +40,6 @@ The underlying `FetchedResultsObserver` explicitly ignores `.update` delegate ev
 
 * **`FetchModifier`**: A view modifier that manages the `NSFetchedResultsController` lifecycle and binds observation updates to view rendering.
 * **`NSFetchRequestRepresentable`**: A protocol defining a lightweight, equatable, and sendable configuration blueprint with an associated result type to build an `NSFetchRequest`.
-* **`FetchedResults2`**: A lightweight wrapper conforming to `RandomAccessCollection` and `Equatable` wrapping the underlying fetched objects.
 * **`FetchedResultsObserver`**: An `@Observable` class acting as the `NSFetchedResultsControllerDelegate`, tracking structural updates and managing version bumps reactively.
 
 ---
@@ -66,7 +74,7 @@ import CoreData
 
 struct ItemListView: View {
     @State private var ascending = true
-    @State private var items = FetchedResults2<Item>()
+    @State private var items: [Item] = []
     @Environment(\.managedObjectContext) private var viewContext
     
     // Define a domain-specific configuration conforming to NSFetchRequestRepresentable
@@ -98,9 +106,9 @@ struct ItemListView: View {
                 }
             }
         }
-        .fetch(SortedItems(ascending: ascending)) { result in
+        .fetch(SortedItems(ascending: ascending)) { results in
             withAnimation {
-               items = result
+               items = results
             }
         } onError: { error in
             print("Fetch failed: \(error)")

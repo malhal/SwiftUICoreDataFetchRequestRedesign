@@ -48,7 +48,7 @@ struct FetchedTable: View {
     var body: some View {
         Table(items, sortOrder: $sortDescriptors) {
             TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
-                Text(item.timestamp!, format: Date.FormatStyle(date: .numeric, time: .standard))
+                ItemRow(item: item)
             }
         }
     }

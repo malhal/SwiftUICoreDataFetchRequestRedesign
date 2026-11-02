@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EC4E02D03098DC2700B1B7F4 /* ItemRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4E02CF3098DC2700B1B7F4 /* ItemRow.swift */; };
 		EC7486B32F36523300597190 /* FetchResults.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7486B22F36523300597190 /* FetchResults.swift */; };
 		ECB46F543082B0F200E4028D /* FetchedResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECB46F533082B0F200E4028D /* FetchedResultsView.swift */; };
 		ECE7C3553087BC1D0052E6B9 /* FetchRequest2.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE7C3543087BC1D0052E6B9 /* FetchRequest2.swift */; };
@@ -23,6 +24,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		EC4E02CF3098DC2700B1B7F4 /* ItemRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRow.swift; sourceTree = "<group>"; };
 		EC7486B22F36523300597190 /* FetchResults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchResults.swift; sourceTree = "<group>"; };
 		ECB46F533082B0F200E4028D /* FetchedResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchedResultsView.swift; sourceTree = "<group>"; };
 		ECE7C3543087BC1D0052E6B9 /* FetchRequest2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchRequest2.swift; sourceTree = "<group>"; };
@@ -76,6 +78,7 @@
 		ECE9C3CC2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign */ = {
 			isa = PBXGroup;
 			children = (
+				EC4E02CF3098DC2700B1B7F4 /* ItemRow.swift */,
 				ECE7C358308A34140052E6B9 /* FetchModifier.swift */,
 				EC7486B22F36523300597190 /* FetchResults.swift */,
 				ECE9C3CD2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesignApp.swift */,
@@ -183,6 +186,7 @@
 				ECE9C3D32B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.xcdatamodeld in Sources */,
 				EC7486B32F36523300597190 /* FetchResults.swift in Sources */,
 				ECE9C3E22B32F3E100CF6103 /* FetchViewOriginal.swift in Sources */,
+				EC4E02D03098DC2700B1B7F4 /* ItemRow.swift in Sources */,
 				ECE9C3E42B32F61900CF6103 /* FetchViewRedesign.swift in Sources */,
 				ECE7C3573087CF240052E6B9 /* FetchObserver.swift in Sources */,
 				ECE7C3553087BC1D0052E6B9 /* FetchRequest2.swift in Sources */,

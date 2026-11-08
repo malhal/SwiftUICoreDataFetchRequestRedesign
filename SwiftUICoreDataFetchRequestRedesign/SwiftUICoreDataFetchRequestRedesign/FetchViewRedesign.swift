@@ -23,7 +23,7 @@ struct FetchViewRedesign: View {
     @State private var counter2 = 0
     @Environment(\.managedObjectContext) var viewContext
 
-    //@FetchRequest2 var items: [Item]
+    //@FetchRequest2 var items2: [Item]
     //@FetchRequest2(sortDescriptors: [SortDescriptor(\Item.timestamp)]) var items: [Item]
    // @FetchRequest2(SortedItems(ascending: false)) var items: [Item]
     
@@ -50,16 +50,15 @@ struct FetchViewRedesign: View {
     
     var body: some View {
         let _ = Self._printChanges()
-        //FetchedResultsView(SortedItems(ascending: ascending)) { items, _ in
         VStack {
             HStack {
                 Button("Recompute \(counter2)") {
                     counter2 += 1
                 }
                 Button("ascending ") {
-//                    withAnimation {
-//                        ascending.toggle()
-//                    }
+                    withAnimation {
+                        ascending.toggle()
+                    }
                 }
             }
             // FetchedTable2(ascending: $ascending)

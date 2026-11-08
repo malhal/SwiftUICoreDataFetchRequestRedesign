@@ -2,7 +2,7 @@
 //  StaticFetchRequest.swift
 //  SwiftUICoreDataFetchRequestRedesign
 //
-//  Created by Malcolm Hall on 20/10/2026.
+//  Created by Malcolm Hall on 8/11/2026.
 //
 import Foundation
 import SwiftUI
@@ -10,14 +10,7 @@ import CoreData
 
 public protocol NSFetchRequestRepresentable<ResultType>: Equatable {
     associatedtype ResultType: NSFetchRequestResult
-    var entityName: String { get }
     func makeNSFetchRequest() -> NSFetchRequest<ResultType>
-}
-
-extension NSFetchRequestRepresentable where ResultType: NSManagedObject {
-    var entityName: String {
-        ResultType.entity().name!
-    }
 }
 
 struct DefaultFetchRequestRepresentable<ResultType: NSFetchRequestResult>: NSFetchRequestRepresentable {
@@ -34,15 +27,15 @@ struct ModernSortFetchRequest<ResultType: NSManagedObject>: NSFetchRequestRepres
     let sortDescriptors: [SortDescriptor<ResultType>]
     
     public func makeNSFetchRequest() -> NSFetchRequest<ResultType> {
-        let entity = ResultType.entity()
-        let fr = NSFetchRequest<ResultType>(entityName: entity.name ?? entity.managedObjectClassName)
+        let fr = NSFetchRequest<ResultType>()
+        fr.entity = ResultType.entity()
         fr.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
         return fr
     }
 }
 
 // 1. Type-erased wrapper that conforms to BOTH protocols and Equatable
-public struct AnyFetchRequestRepresentable<ResultType: NSFetchRequestResult>: NSFetchRequestRepresentable, Equatable {
+public struct AnyFetchRequestRepresentable<ResultType: NSFetchRequestResult>: NSFetchRequestRepresentable {
     public typealias ResultType = ResultType
     
     private let base: any NSFetchRequestRepresentable<ResultType>
@@ -53,10 +46,6 @@ public struct AnyFetchRequestRepresentable<ResultType: NSFetchRequestResult>: NS
     
     public func makeNSFetchRequest() -> NSFetchRequest<ResultType> {
         base.makeNSFetchRequest()
-    }
-    
-    public var entityName: String {
-        base.entityName
     }
     
     // Equatable conformance for SwiftUI's diffing engine (Zero closures used)
@@ -73,31 +62,27 @@ public struct AnyFetchRequestRepresentable<ResultType: NSFetchRequestResult>: NS
     }
 }
 
-// where Representable.ResultType == ResultType
 @MainActor
 @propertyWrapper
 public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency DynamicProperty {
     
-    
     @Environment(\.managedObjectContext) private var managedObjectContext
-    @State private var coordinator: Coordinator
-    //private var equatable: (any Equatable)
+    @State private var coordinator = Coordinator()
     private var representable: AnyFetchRequestRepresentable<ResultType>
     
-
+    public init() where ResultType: NSManagedObject {
+        self.init(entityName: ResultType.entity().name!)
+    }
     
-    public init(entityName: String = "") {
-        self._coordinator = State(initialValue: Coordinator())
+    public init(entityName: String) {
         self.representable = AnyFetchRequestRepresentable(DefaultFetchRequestRepresentable<ResultType>(entityName: entityName))
     }
     
     public init<V: NSFetchRequestRepresentable<ResultType>>(_ representable: V) {
-        self._coordinator = State(initialValue: Coordinator())
         self.representable = AnyFetchRequestRepresentable(representable)
     }
     
     public init(sortDescriptors: [SortDescriptor<ResultType>]) where ResultType: NSManagedObject {
-        self._coordinator = State(initialValue: Coordinator())
         self.representable = AnyFetchRequestRepresentable(ModernSortFetchRequest(sortDescriptors: sortDescriptors))
     }
     
@@ -106,7 +91,7 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
         coordinator.config.objects
     }
     
-    public mutating func update() {
+    public func update() {
         coordinator.update(from: self)
     }
     
@@ -114,8 +99,6 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
     public var projectedValue: Config { coordinator.config }
     
     public struct Config {
-        public internal(set) var representable: AnyFetchRequestRepresentable<ResultType>!
-        public internal(set) var managedObjectContext: NSManagedObjectContext!
         public internal(set) var objects:  [ResultType] = []
         public internal(set) var lastError: (any Error)? = nil
     }
@@ -137,20 +120,19 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
         @ObservationIgnored
         private var hasStructuralChanges = false
         
+        @ObservationIgnored
+        public var representable: AnyFetchRequestRepresentable<ResultType>?
+        
+        @ObservationIgnored
+        public var managedObjectContext: NSManagedObjectContext?
+        
         func update(from parent: FetchRequest2) {
-            if let managedObjectContext = config.managedObjectContext, managedObjectContext == parent.managedObjectContext {
-                
-                // Check if both existentials are present and equal via type-opening helper
-                if let currentEquatable = config.representable,
-                    currentEquatable == parent.representable {
-                    // They are equal! Skip work.
-                    return
-                }
-                
+            if (managedObjectContext, representable) == (parent.managedObjectContext, parent.representable) {
+                return
             }
+            managedObjectContext = parent.managedObjectContext
+            representable = parent.representable
             
-            _config.managedObjectContext = parent.managedObjectContext
-            _config.representable = parent.representable
             let fr = parent.representable.makeNSFetchRequest()
             let frc = NSFetchedResultsController(
                 fetchRequest: fr,
@@ -160,7 +142,7 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
             )
             do {
                 try frc.performFetch()
-                self.frc = frc
+                self.frc = frc // only save if didn't fail so previous valid frc continues to update.
                 _config.objects = frc.fetchedObjects ?? []
                 _config.lastError = nil
             } catch {
@@ -168,16 +150,7 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
             }
         }
         
-        // Static helper to compare two `any Equatable` operands by opening the existential
-        private static func areEqual(_ lhs: any Equatable, _ rhs: any Equatable) -> Bool {
-            func open<T: Equatable>(_ lhsValue: T, _ rhsValue: any Equatable) -> Bool {
-                guard let rhsT = rhsValue as? T else { return false }
-                return lhsValue == rhsT
-            }
-            return open(lhs, rhs)
-        }
-        
-        // MARK: - Delegate (Async Push)
+        // MARK: - Delegate
         
         func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
                                didChange anObject: Any,
@@ -193,6 +166,10 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
             guard hasStructuralChanges else { return }
             hasStructuralChanges = false
             config.objects = controller.fetchedObjects as? [ResultType] ?? []
+        }
+        
+        deinit {
+            print("FetchRequest2.Coordinator deinit")
         }
     }
 

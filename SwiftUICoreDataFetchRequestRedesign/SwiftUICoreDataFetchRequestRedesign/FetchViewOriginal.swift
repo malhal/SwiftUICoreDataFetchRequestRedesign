@@ -15,44 +15,55 @@ struct FetchViewOriginal: View {
     
     // source of truth for the sort
     @State private var ascending = false
-
+    
     @State private var counter2 = 0
-   
+    
+    var sortDescriptors: [SortDescriptor<Item>] {
+        [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+    }
+    
+    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
+        Binding {
+            sortDescriptors
+        } set: { v, t in
+            withTransaction(t) {
+                ascending = v.first?.order == .forward
+            }
+        }
+    }
     var body: some View {
         
         Button("Recompute \(counter2)") {
             counter2 += 1
         }
         Button("ascending \(ascending.description)") {
-            //  withAnimation {
-            ascending.toggle()
+          //  withAnimation {
+                ascending.toggle()
+         //   }
         }
-        FetchedTable(ascending: $ascending)
-    }
-}
-
-struct FetchedTable: View {
-    @FetchRequest var items: FetchedResults<Item>
-    @Binding var sortDescriptors: [SortDescriptor<Item>]
-    
-    init(ascending: Binding<Bool>) {
-        let sortDescriptors = [SortDescriptor(\Item.timestamp, order: ascending.wrappedValue ? .forward : .reverse)]
-        _items = FetchRequest(sortDescriptors: sortDescriptors, animation: .default)
-        _sortDescriptors = Binding {
-            sortDescriptors
-        } set: { v in
-            ascending.wrappedValue = v.first?.order == .forward
-        }
-    }
-    
-    var body: some View {
-        Table(items, sortOrder: $sortDescriptors) {
-            TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
-                ItemRow(item: item)
+        //FetchedTable(ascending: $ascending)
+        FetchRequestView(.init(sortDescriptors: sortDescriptors)) { items in
+            Table(items, sortOrder: sortDescriptorsBinding) {
+                TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
+                    ItemRow(item: item)
+                }
             }
         }
     }
 }
+
+//struct FetchedTable: View {
+//    @FetchRequest var items: FetchedResults<Item>
+//    @Binding var sortDescriptors: [SortDescriptor<Item>]
+//    
+//    init(ascending: Binding<Bool>) {
+//       
+//    }
+//    
+//    var body: some View {
+//
+//    }
+//}
 
 //struct FetchedTable: View {
 //    // 1. Declare the property wrapper with SectionIdentifier (String) and Result (Item)

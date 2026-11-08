@@ -37,7 +37,7 @@ struct ContentView: View {
                         showRedesign.toggle()
                     }
                     if showRedesign {
-                        FetchViewRedesign(counter: counter)
+                        FetchViewRedesign(counter: 0)
                     }
                 }
             }
@@ -48,9 +48,11 @@ struct ContentView: View {
                 }
 #endif
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+                    Button("Add With Animation", action: addItem)
+                   
+                }
+                ToolbarItem {
+                    Button("Add Without Animation", action: addItem2)
                 }
             }
         }
@@ -74,6 +76,12 @@ struct ContentView: View {
         withAnimation {
             viewContext.processPendingChanges() // required for row animation
         }
+    }
+    
+    private func addItem2() {
+        let newItem = Item(context: viewContext)
+        newItem.timestamp = Date()
+       
     }
 }
 

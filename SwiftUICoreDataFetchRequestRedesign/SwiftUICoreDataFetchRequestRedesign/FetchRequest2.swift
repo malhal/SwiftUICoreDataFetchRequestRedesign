@@ -8,112 +8,178 @@ import Foundation
 import SwiftUI
 import CoreData
 
+public protocol NSFetchRequestRepresentable<ResultType>: Equatable {
+    associatedtype ResultType: NSFetchRequestResult
+    var entityName: String { get }
+    func makeNSFetchRequest() -> NSFetchRequest<ResultType>
+}
+
+extension NSFetchRequestRepresentable where ResultType: NSManagedObject {
+    var entityName: String {
+        ResultType.entity().name!
+    }
+}
+
+struct DefaultFetchRequestRepresentable<ResultType: NSFetchRequestResult>: NSFetchRequestRepresentable {
+    let entityName: String
+    
+    public func makeNSFetchRequest() -> NSFetchRequest<ResultType> {
+        let fr = NSFetchRequest<ResultType>(entityName: entityName)
+        fr.sortDescriptors = []
+        return fr
+    }
+}
+
+struct ModernSortFetchRequest<ResultType: NSManagedObject>: NSFetchRequestRepresentable {
+    let sortDescriptors: [SortDescriptor<ResultType>]
+    
+    public func makeNSFetchRequest() -> NSFetchRequest<ResultType> {
+        let entity = ResultType.entity()
+        let fr = NSFetchRequest<ResultType>(entityName: entity.name ?? entity.managedObjectClassName)
+        fr.sortDescriptors = sortDescriptors.map { NSSortDescriptor($0) }
+        return fr
+    }
+}
+
+// 1. Type-erased wrapper that conforms to BOTH protocols and Equatable
+public struct AnyFetchRequestRepresentable<ResultType: NSFetchRequestResult>: NSFetchRequestRepresentable, Equatable {
+    public typealias ResultType = ResultType
+    
+    private let base: any NSFetchRequestRepresentable<ResultType>
+    
+    public init<T: NSFetchRequestRepresentable<ResultType>>(_ base: T) {
+        self.base = base
+    }
+    
+    public func makeNSFetchRequest() -> NSFetchRequest<ResultType> {
+        base.makeNSFetchRequest()
+    }
+    
+    public var entityName: String {
+        base.entityName
+    }
+    
+    // Equatable conformance for SwiftUI's diffing engine (Zero closures used)
+    public static func == (lhs: AnyFetchRequestRepresentable<ResultType>, rhs: AnyFetchRequestRepresentable<ResultType>) -> Bool {
+        return areEqual(lhs.base, rhs.base)
+    }
+    
+    private static func areEqual(_ lhs: any NSFetchRequestRepresentable<ResultType>, _ rhs: any NSFetchRequestRepresentable<ResultType>) -> Bool {
+        func open<T: NSFetchRequestRepresentable<ResultType>>(_ lhsValue: T, _ rhsValue: any NSFetchRequestRepresentable<ResultType>) -> Bool {
+            guard let rhsT = rhsValue as? T else { return false }
+            return lhsValue == rhsT
+        }
+        return open(lhs, rhs)
+    }
+}
+
+// where Representable.ResultType == ResultType
 @MainActor
 @propertyWrapper
-public struct FetchRequest2<Representable>: @preconcurrency DynamicProperty where Representable: NSFetchRequestRepresentable {
+public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency DynamicProperty {
     
-    @Environment(\.managedObjectContext) public var fetchRequestContext
-    @State private var evaluator = Evaluator()
-    private let representable: Representable
     
-    public init(_ representable: Representable) {
-        self.representable = representable
+    @Environment(\.managedObjectContext) private var managedObjectContext
+    @State private var coordinator: Coordinator
+    //private var equatable: (any Equatable)
+    private var representable: AnyFetchRequestRepresentable<ResultType>
+    
+
+    
+    public init(entityName: String = "") {
+        self._coordinator = State(initialValue: Coordinator())
+        self.representable = AnyFetchRequestRepresentable(DefaultFetchRequestRepresentable<ResultType>(entityName: entityName))
     }
     
-    private var output = Output(results: [], error: nil)
-    
-    
-    public var wrappedValue: [Representable.ResultType] {
-        output.results
+    public init<V: NSFetchRequestRepresentable<ResultType>>(_ representable: V) {
+        self._coordinator = State(initialValue: Coordinator())
+        self.representable = AnyFetchRequestRepresentable(representable)
     }
     
-    public var lastError: Error? {
-        output.error
+    public init(sortDescriptors: [SortDescriptor<ResultType>]) where ResultType: NSManagedObject {
+        self._coordinator = State(initialValue: Coordinator())
+        self.representable = AnyFetchRequestRepresentable(ModernSortFetchRequest(sortDescriptors: sortDescriptors))
     }
     
-    public struct Input: Equatable {
-        public let context: NSManagedObjectContext
-        public let representable: Representable
-        
-        public init(context: NSManagedObjectContext, representable: Representable) {
-            self.context = context
-            self.representable = representable
-        }
-    }
-    
-    public struct Output {
-        public var results: [Representable.ResultType]
-        public var error: Error?
-        
-        public init(results: [Representable.ResultType], error: Error?) {
-            self.results = results
-            self.error = error
-        }
+    // reads the tracked value
+    public var wrappedValue: [ResultType] {
+        coordinator.config.objects
     }
     
     public mutating func update() {
-        output = evaluator(Input(context: fetchRequestContext, representable: representable))
+        coordinator.update(from: self)
     }
     
-    public var projectedValue: FetchRequest2<Representable> {
-        self
+    // also reads the tracked value
+    public var projectedValue: Config { coordinator.config }
+    
+    public struct Config {
+        public internal(set) var representable: AnyFetchRequestRepresentable<ResultType>!
+        public internal(set) var managedObjectContext: NSManagedObjectContext!
+        public internal(set) var objects:  [ResultType] = []
+        public internal(set) var lastError: (any Error)? = nil
     }
     
     @MainActor
     @Observable
-    public class Evaluator: NSObject, @preconcurrency NSFetchedResultsControllerDelegate {
+    final class Coordinator: NSObject, @preconcurrency NSFetchedResultsControllerDelegate {
+        
+        private(set) var config = Config()
         
         @ObservationIgnored
-        private var lastInput: Input?
-        
-        public var results: [Representable.ResultType] = []
-        
-        @ObservationIgnored
-        public var error: Error?
-        
-        @ObservationIgnored
-        var frc: NSFetchedResultsController<Representable.ResultType>? {
+        private var frc: NSFetchedResultsController<ResultType>? {
             didSet {
                 oldValue?.delegate = nil
                 frc?.delegate = self
             }
         }
         
-        override init() {
-            super.init()
-            print("FetchedResultsObserver init")
-        }
-        
         @ObservationIgnored
         private var hasStructuralChanges = false
         
-        @discardableResult
-        public func callAsFunction(_ input: Input) -> Output {
-            if let lastInput, lastInput == input {
-                return Output(results: results, error: error)
+        func update(from parent: FetchRequest2) {
+            if let managedObjectContext = config.managedObjectContext, managedObjectContext == parent.managedObjectContext {
+                
+                // Check if both existentials are present and equal via type-opening helper
+                if let currentEquatable = config.representable,
+                    currentEquatable == parent.representable {
+                    // They are equal! Skip work.
+                    return
+                }
+                
             }
-            lastInput = input
             
-            let fr = input.representable.makeNSFetchRequest()
+            _config.managedObjectContext = parent.managedObjectContext
+            _config.representable = parent.representable
+            let fr = parent.representable.makeNSFetchRequest()
+            let frc = NSFetchedResultsController(
+                fetchRequest: fr,
+                managedObjectContext: parent.managedObjectContext,
+                sectionNameKeyPath: nil,
+                cacheName: nil
+            )
             do {
-                let frc = NSFetchedResultsController(
-                    fetchRequest: fr,
-                    managedObjectContext: input.context,
-                    sectionNameKeyPath: nil,
-                    cacheName: nil
-                )
                 try frc.performFetch()
                 self.frc = frc
-                results = frc.fetchedObjects ?? []
-                error = nil
+                _config.objects = frc.fetchedObjects ?? []
+                _config.lastError = nil
             } catch {
-                self.error = error
+                _config.lastError = error
             }
-            
-            return Output(results: results, error: error)
         }
         
-        public func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
+        // Static helper to compare two `any Equatable` operands by opening the existential
+        private static func areEqual(_ lhs: any Equatable, _ rhs: any Equatable) -> Bool {
+            func open<T: Equatable>(_ lhsValue: T, _ rhsValue: any Equatable) -> Bool {
+                guard let rhsT = rhsValue as? T else { return false }
+                return lhsValue == rhsT
+            }
+            return open(lhs, rhs)
+        }
+        
+        // MARK: - Delegate (Async Push)
+        
+        func controller(_ controller: NSFetchedResultsController<any NSFetchRequestResult>,
                                didChange anObject: Any,
                                at indexPath: IndexPath?,
                                for type: NSFetchedResultsChangeType,
@@ -123,14 +189,12 @@ public struct FetchRequest2<Representable>: @preconcurrency DynamicProperty wher
             }
         }
         
-        public func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
+        func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
             guard hasStructuralChanges else { return }
             hasStructuralChanges = false
-            results = controller.fetchedObjects as? [Representable.ResultType] ?? []
-        }
-        
-        deinit {
-            print("FetchedResultsObserver deinit")
+            config.objects = controller.fetchedObjects as? [ResultType] ?? []
         }
     }
+
 }
+

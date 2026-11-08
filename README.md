@@ -1,118 +1,106 @@
-# SwiftUI Core Data Fetch Redesign
+# SwiftUI Core Data Fetch Request Redesign
 
-This project provides a clean, minimal, and high-performance Core Data fetch architecture designed to fit naturally into SwiftUI. It replaces traditional property wrappers and post-render hack patterns with a view modifier approach (`.fetch(...)`) powered by an internal observable observer pattern, bringing built-in error handling, precise state tracking, granular change observation, and seamless transaction/animation preservation to Core Data.
+This project provides a clean, high-performance, property-wrapper-driven Core Data fetch architecture designed to integrate natively into SwiftUI. It replaces traditional `@FetchRequest` limitations with a robust **`@propertyWrapper`** and **`FetchRequest2View`** combination, powered by an internal `@Observable` coordinator and an equatable protocol representation pattern.
 
 ---
 
 ## Why This Redesign?
 
-### 1. View Modifier vs. Property Wrapper (Why Avoid `@PropertyWrapper`?)
+### 1. Property Wrapper Ergonomics with Dynamic Query Types
 
-Traditional property wrappers like `@FetchRequest` enforce strict compile-time type requirements at the property declaration site. When working with a generic configuration protocol (`NSFetchRequestRepresentable`), attempting to drive a property wrapper via an associated type introduces severe ergonomic hurdles:
+Standard property wrappers like `@FetchRequest` require rigid initialization parameters that make custom, domain-specific query blueprints awkward.
 
-* **The Syntax Barrier**: Declaring a property wrapper with generic constraints on a child view makes standard `@` syntax clumsy or entirely impossible without messy type-erasure.
-* **Lifecycle & Scoping**: A view modifier (`.fetch(...)`) acts as a natural SwiftUI boundary. It scopes the `FetchedResultsObserver` lifecycle tightly to the view's appearance and passes strongly-typed results (`[ResultType]`) directly into a clean closure, aligning with native SwiftUI data-flow patterns.
+* **The Factory Pattern (`NSFetchRequestRepresentable`)**: By defining your query configurations as value-type structs conforming to `NSFetchRequestRepresentable`, you can bundle complex sort descriptors, predicates, and fetch limits into clean, reusable objects.
+* **`AnyFetchRequestRepresentable` Type Erasure**: Because protocols with associated types (`ResultType`) cannot normally be stored directly in type-erased properties, a custom type-opening container handles static type-casting safely under the hood, allowing `FetchRequest2` to accept any conforming representable without compile-time generics friction.
 
-### 2. Why `[ResultType]` Instead of a Wrapper Struct (`FetchedResults`)?
+### 2. Explicit Error Boundaries & Configuration Tracking
 
-Traditional Core Data integrations (like `@FetchRequest`) return a custom collection wrapper (`FetchedResults<T>`) that maintains an internal reference back to the fetch controller. This reference is required so that dynamic query properties (such as bindings to predicates and sort descriptors) can reach into the controller at runtime and mutate them.
+Unlike native SwiftUI property wrappers that fail silently or lack exception handling, `FetchRequest2` exposes database errors directly through its projected configuration state (`projectedValue` / `Config`), keeping your UI safe to render fallback states.
 
-In this architecture, that pattern is intentionally eliminated:
+### 3. Granular Observation & Performance Optimization
 
-* **Driven by Input, Not References:** Your query configuration is defined entirely by the value-type, `Equatable` struct passed directly into the `.fetch(...)` modifier (e.g., `SortedItems(ascending: ascending)`).
-* **Clean Array Delivery:** Because the input struct handles tracking changes and re-evaluating fetches when its properties mutate, the modifier simply delivers a clean, standard array (`[ResultType]`) directly to your closure. This completely removes the need for opaque collection wrappers or internal controller pointers leaking into your view layer.
+The underlying `Coordinator` implements `NSFetchedResultsControllerDelegate` and explicitly tracks structural changes:
 
-### 3. Synchronous Evaluation & Transaction Preservation
-
-Evaluates fetches cleanly during state transitions, ensuring that incoming animation transactions (such as `withAnimation` triggered by user toggles or table sort order bindings) flow seamlessly down to view updates without dropping context or triggering stray animation glitches.
-
-### 4. Built-in Error Handling
-
-Standard `@FetchRequest` does not expose fetch errors or handle execution failures gracefully. This architecture exposes explicit error states through the `.fetch(_:, handleResults:, onError:)` modifier, allowing database errors to be handled safely while separating success paths.
-
-### 5. Granular Observation
-
-The underlying `FetchedResultsObserver` explicitly ignores `.update` delegate events, tracking only structural changes (inserts, deletes, moves). This prevents property updates in a single row from triggering expensive collection-wide re-renders.
+* It ignores `.update` delegate events for collection reloads, preventing property changes inside a single row from triggering expensive full-list re-renders.
+* It only triggers updates when structural mutations (inserts, deletes, moves) or external configuration changes occur.
 
 ---
 
 ## Core Components
 
-* **`FetchModifier`**: A view modifier that manages the `NSFetchedResultsController` lifecycle and binds observation updates to view rendering.
-* **`NSFetchRequestRepresentable`**: A protocol defining a lightweight, equatable, and sendable configuration blueprint with an associated result type to build an `NSFetchRequest`.
-* **`FetchedResultsObserver`**: An `@Observable` class acting as the `NSFetchedResultsControllerDelegate`, tracking structural updates and managing version bumps reactively.
-
----
-
-## Animation & Transaction Behavior
-
-Understanding how animations interact with this architecture ensures smooth visual transitions for both local user interactions and background synchronization:
-
-### 1. Local Actions & Uncommitted Changes (`processPendingChanges`)
-
-Because Core Data operations are asynchronous by default, uncommitted in-memory insertions or deletions will normally close their `withAnimation` transaction block before the fetched results controller fires its delegate.
-
-* To force an immediate synchronous evaluation so that uncommitted local inserts animate smoothly, call `viewContext.processPendingChanges()` inside your local action block.
-* Alternatively, you can omit the save and let uncommitted updates refresh the UI reactively.
-
-### 2. Background and External Updates
-
-* **Quiet by Default:** Background updates (such as CloudKit syncs or data imports) update silently without animations. This prevents "sync storms," UI stutter, and abrupt layout jumps while users are interacting with the app.
-* **Custom Background Animations:** If background changes *do* need to animate into view, you can wrap the context merge process (`viewContext.mergeChanges(...)`) inside an explicit `withAnimation` block at the boundary where external saves enter the context.
-
-### 3. Bindings & Parameter Changes
-
-* State-driven changes—such as tapping a sort toggle bound via `withAnimation`—trigger a re-evaluation of the fetch configuration inside the modifier. Because the resulting update flows through the active transaction, row re-orderings animate smoothly alongside the control itself.
+* **`NSFetchRequestRepresentable`**: A protocol defining an equatable configuration blueprint (`makeNSFetchRequest()`) that builds an `NSFetchRequest`.
+* **`AnyFetchRequestRepresentable`**: A type-erased container using static type-opening to compare and wrap arbitrary fetch request representables safely.
+* **`FetchRequest2`**: A `@propertyWrapper` and `DynamicProperty` that manages the `NSFetchedResultsController` lifecycle, tracks the environment's `NSManagedObjectContext`, and exposes strongly-typed results and errors via `@Observable`.
+* **`FetchRequest2View`**: A view helper container that injects the fetched array and configuration state directly into your custom content closure.
 
 ---
 
 ## Usage Example
+
+Here is how cleanly you can drive a dynamic Core Data table query with sort order bindings, animation transactions, and real-time updates using `FetchRequest2` and `FetchRequest2View`:
 
 ```swift
 import SwiftUI
 import CoreData
 
 struct ItemListView: View {
-    @State private var ascending = true
-    @State private var items: [Item] = []
-    @Environment(\.managedObjectContext) private var viewContext
-    
-    // Define a domain-specific configuration conforming to NSFetchRequestRepresentable
-    struct SortedItems: NSFetchRequestRepresentable {
-        let ascending: Bool
-         
-        func makeNSFetchRequest() -> NSFetchRequest<Item> {
-            let fr = Item.fetchRequest()
-            fr.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
-            return fr
+    @State private var ascending = false
+    @Environment(\.managedObjectContext) var viewContext
+
+    // Bindable sort descriptors for SwiftUI tables or controls
+    var sortDescriptorsBinding: Binding<[SortDescriptor<Item>]> {
+        Binding {
+            [SortDescriptor(\Item.timestamp, order: ascending ? .forward : .reverse)]
+        } set: { value, transaction in
+            withTransaction(transaction) {
+                ascending = value.first?.order == .forward
+            }
         }
     }
-    
+
     var body: some View {
         VStack {
-            HStack {
-                Button(ascending ? "Ascending" : "Descending") {
-                    withAnimation {
-                        ascending.toggle()
+            Button("Toggle Sort: \(ascending ? "Ascending" : "Descending")") {
+                withAnimation {
+                    ascending.toggle()
+                }
+            }
+            
+            // Drive the view using FetchRequest2 wrapped in FetchRequest2View
+            FetchRequest2View(FetchRequest2(SortedItems(ascending: ascending))) { items, config in
+                
+                if let error = config.lastError {
+                    Text("Error loading data: \(error.localizedDescription)")
+                        .foregroundColor(.red)
+                }
+
+                Table(items, sortOrder: sortDescriptorsBinding.animation()) {
+                    TableColumn("Timestamp", value: \.timestamp) { item in
+                        ItemRow(item: item)
                     }
                 }
-                Spacer()
-            }
-            .padding()
-             
-            List {
-                ForEach(items) { item in
-                    Text(item.timestamp?.description ?? "Unknown Date")
-                }
             }
         }
-        .fetch(SortedItems(ascending: ascending)) { results in
-            withAnimation {
-               items = results
-            }
-        } onError: { error in
-            print("Fetch failed: \(error)")
-        }
+    }
+}
+
+// Define a domain-specific configuration conforming to NSFetchRequestRepresentable
+struct SortedItems: NSFetchRequestRepresentable {
+    let ascending: Bool
+    
+    func makeNSFetchRequest() -> NSFetchRequest<Item> {
+        let fr = Item.fetchRequest()
+        fr.sortDescriptors = [NSSortDescriptor(keyPath: \Item.timestamp, ascending: ascending)]
+        return fr
+    }
+}
+
+// so the row updates when the timestamp changes because the FetchRequest2 only updates on insert/delete/move not change.
+struct ItemRow: View {
+    @ObservedObject var item: Item
+    
+    var body: some View {
+        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
     }
 }
 

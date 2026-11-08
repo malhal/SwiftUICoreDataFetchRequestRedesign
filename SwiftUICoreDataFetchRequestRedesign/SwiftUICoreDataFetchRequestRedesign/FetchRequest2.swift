@@ -68,7 +68,7 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
     
     @Environment(\.managedObjectContext) private var managedObjectContext
     @State private var coordinator = Coordinator()
-    private var representable: AnyFetchRequestRepresentable<ResultType>
+    private let representable: AnyFetchRequestRepresentable<ResultType>
     
     public init() where ResultType: NSManagedObject {
         self.init(entityName: ResultType.entity().name!)
@@ -91,12 +91,14 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
         coordinator.config.objects
     }
     
+    // also reads the tracked value
+    public var projectedValue: Config {
+        coordinator.config
+    }
+    
     public func update() {
         coordinator.update(from: self)
     }
-    
-    // also reads the tracked value
-    public var projectedValue: Config { coordinator.config }
     
     public struct Config {
         public internal(set) var objects:  [ResultType] = []
@@ -121,10 +123,10 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
         private var hasStructuralChanges = false
         
         @ObservationIgnored
-        public var representable: AnyFetchRequestRepresentable<ResultType>?
+        private var representable: AnyFetchRequestRepresentable<ResultType>?
         
         @ObservationIgnored
-        public var managedObjectContext: NSManagedObjectContext?
+        private var managedObjectContext: NSManagedObjectContext?
         
         func update(from parent: FetchRequest2) {
             if (managedObjectContext, representable) == (parent.managedObjectContext, parent.representable) {

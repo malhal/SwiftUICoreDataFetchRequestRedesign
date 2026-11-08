@@ -10,6 +10,6 @@ struct ItemRow: View {
     @ObservedObject var item: Item
     
     var body: some View {
-        Text(item.timestamp2, format: Date.FormatStyle(date: .numeric, time: .standard))
+        Text(item.timestampTombstone!, format: Date.FormatStyle(date: .numeric, time: .standard))
     }
 }

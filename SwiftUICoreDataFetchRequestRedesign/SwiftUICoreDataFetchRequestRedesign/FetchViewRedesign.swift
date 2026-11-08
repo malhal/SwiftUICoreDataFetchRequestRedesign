@@ -74,9 +74,9 @@ struct FetchViewRedesign: View {
                 Button("Delete") {
                     if let first = items.first {
                         viewContext.delete(first)
-                        //                        withAnimation {
-                        //                            viewContext.processPendingChanges()
-                        //                       }
+                        withAnimation {
+                            viewContext.processPendingChanges()
+                       }
                     }
                 }
                 Table(items, sortOrder: sortDescriptorsBinding.animation()) {

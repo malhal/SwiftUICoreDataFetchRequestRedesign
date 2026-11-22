@@ -73,9 +73,9 @@ struct ContentView: View {
     private func addItem() {
         let newItem = Item(context: viewContext)
         newItem.timestamp = Date()
-        withAnimation {
-            viewContext.processPendingChanges() // required for row animation
-        }
+//        withAnimation {
+//            viewContext.processPendingChanges() // required for row animation
+//        }
     }
     
     private func addItem2() {

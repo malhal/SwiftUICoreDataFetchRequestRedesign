@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EC1CFE5030B38F4A00949352 /* BindingKit in Frameworks */ = {isa = PBXBuildFile; productRef = EC1CFE4F30B38F4A00949352 /* BindingKit */; };
+		EC3AFBF230A1F513003EFF32 /* BindingKit in Frameworks */ = {isa = PBXBuildFile; productRef = EC3AFBF130A1F513003EFF32 /* BindingKit */; };
 		EC4E02D03098DC2700B1B7F4 /* ItemRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4E02CF3098DC2700B1B7F4 /* ItemRow.swift */; };
 		EC4E02D23099F14B00B1B7F4 /* FetchedResultsEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4E02D13099F14B00B1B7F4 /* FetchedResultsEvaluator.swift */; };
 		EC4E02D4309A0BF000B1B7F4 /* FetchRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4E02D3309A0BF000B1B7F4 /* FetchRequestView.swift */; };
@@ -54,6 +56,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EC3AFBF230A1F513003EFF32 /* BindingKit in Frameworks */,
+				EC1CFE5030B38F4A00949352 /* BindingKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -135,6 +139,10 @@
 			dependencies = (
 			);
 			name = SwiftUICoreDataFetchRequestRedesign;
+			packageProductDependencies = (
+				EC3AFBF130A1F513003EFF32 /* BindingKit */,
+				EC1CFE4F30B38F4A00949352 /* BindingKit */,
+			);
 			productName = SwiftUICoreDataFetchRequestRedesign;
 			productReference = ECE9C3CA2B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.app */;
 			productType = "com.apple.product-type.application";
@@ -163,6 +171,9 @@
 				Base,
 			);
 			mainGroup = ECE9C3C12B32F15D00CF6103;
+			packageReferences = (
+				EC1CFE4E30B38F4A00949352 /* XCRemoteSwiftPackageReference "BindingKit" */,
+			);
 			productRefGroup = ECE9C3CB2B32F15D00CF6103 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -433,6 +444,29 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		EC1CFE4E30B38F4A00949352 /* XCRemoteSwiftPackageReference "BindingKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mkj-is/BindingKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EC1CFE4F30B38F4A00949352 /* BindingKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC1CFE4E30B38F4A00949352 /* XCRemoteSwiftPackageReference "BindingKit" */;
+			productName = BindingKit;
+		};
+		EC3AFBF130A1F513003EFF32 /* BindingKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BindingKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		ECE9C3D12B32F15D00CF6103 /* SwiftUICoreDataFetchRequestRedesign.xcdatamodeld */ = {

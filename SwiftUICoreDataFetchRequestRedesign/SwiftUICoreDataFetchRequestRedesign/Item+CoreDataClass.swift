@@ -27,13 +27,7 @@ public class Item: NSManagedObject {
         super.awakeFromFetch()
         _timestampTombstone = timestamp
     }
-    
-    // didChangeValue is called anyway, need to check for model editor defaults
-//    override public func awakeFromInsert() {
-//        super.awakeFromInsert()
-//        _timestampTombstone = timestamp
-//    }
-    
+
     // not call to set to nil when unsaved inserted object is deleted
     public override func didChangeValue(forKey key: String) {
         super.didChangeValue(forKey: key)
@@ -44,3 +38,9 @@ public class Item: NSManagedObject {
         }
     }
 }
+
+// didChangeValue is called anyway, need to check for model editor defaults
+//    override public func awakeFromInsert() {
+//        super.awakeFromInsert()
+//        _timestampTombstone = timestamp
+//    }

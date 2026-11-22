@@ -7,6 +7,18 @@
 
 import SwiftUI
 import CoreData
+import BindingKit
+
+struct IsSortingKey: TransactionKey {
+    static let defaultValue: Bool = false
+}
+
+extension Transaction {
+    var isSorting: Bool {
+        get { self[IsSortingKey.self] }
+        set { self[IsSortingKey.self] = newValue }
+    }
+}
 
 struct FetchViewRedesign: View {
     
@@ -56,7 +68,10 @@ struct FetchViewRedesign: View {
                     counter2 += 1
                 }
                 Button("ascending ") {
-                    withAnimation {
+                    //var t = Transaction()
+                  //  t.disablesAnimations = true
+                    
+                    withTransaction(\.disablesAnimations, true) {
                         ascending.toggle()
                     }
                 }
@@ -73,24 +88,47 @@ struct FetchViewRedesign: View {
                 }
                 Button("Delete") {
                     if let first = items.first {
+                        let a = first.timestamp
                         viewContext.delete(first)
-                        withAnimation {
+                        let b = first.timestamp
+//                        withAnimation {
                             viewContext.processPendingChanges()
-                       }
+//                       }
+                        let c = first.timestamp
+                        print("L")
                     }
                 }
-                Table(items, sortOrder: sortDescriptorsBinding.animation()) {
+               
+               Table(items, sortOrder: sortDescriptorsBinding) { // .transaction(\.disablesAnimations, true)
                     TableColumn("timestamp" as LocalizedStringResource, value: \.timestamp) { item in
                         ItemRow(item: item)
                     }
                 }
-                //.animation(.none, value: items.map(\.id))
+               
+               .animation(.default, value: items.map(\.id))
+               
+               //               VStack {
+               //                   ForEach(items) { item in
+               //                       ItemRow(item: item)
+               //                   }
+               //               }
+               
+//               .transaction(value: items.map(\.id)) { transaction in
+//                   let t = transaction.disablesAnimations
+//                   if !transaction.isSorting {
+//                       transaction.animation = .default
+//                   }
+//                   
+//                   let u = transaction.disablesAnimations
+//                   print("")
+//               }
+               
 //                .transaction { transaction in
 //                    transaction.animation = .default
 //                }
                 
             
-                //.animation(.default, value: items.map(\.id))
+                //
 //                .transaction { transaction in
 //                    transaction.disablesAnimations = true
 //                }

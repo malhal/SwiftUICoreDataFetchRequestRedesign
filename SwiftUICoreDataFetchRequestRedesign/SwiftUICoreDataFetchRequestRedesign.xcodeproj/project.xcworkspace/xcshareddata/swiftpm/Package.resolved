@@ -1,0 +1,15 @@
+{
+  "originHash" : "412587dbb6e2eecc4e3d9ca6909b852e63b529518e476ab0a1b0c5c8d190fd52",
+  "pins" : [
+    {
+      "identity" : "bindingkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mkj-is/BindingKit.git",
+      "state" : {
+        "revision" : "6de0d2f230afe62ad7a317772a17cca05c5bf5ba",
+        "version" : "1.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}

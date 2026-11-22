@@ -37,6 +37,7 @@ struct FetchViewOriginal: View {
             counter2 += 1
         }
         Button("ascending \(ascending.description)") {
+            
           //  withAnimation {
                 ascending.toggle()
          //   }

@@ -127,7 +127,12 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
         
         @ObservationIgnored
         private var managedObjectContext: NSManagedObjectContext?
-        
+
+        // nonisolated so the @State default value can create it without passing ResultType's conformance to the main actor.
+        nonisolated override init() {
+            super.init()
+        }
+
         func update(from parent: FetchRequest2) {
             if (managedObjectContext, representable) == (parent.managedObjectContext, parent.representable) {
                 return

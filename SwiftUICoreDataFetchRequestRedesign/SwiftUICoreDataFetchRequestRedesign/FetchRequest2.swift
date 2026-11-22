@@ -101,7 +101,7 @@ public struct FetchRequest2<ResultType: NSFetchRequestResult>: @preconcurrency D
     }
     
     public struct Config {
-        public internal(set) var objects:  [ResultType] = []
+        public internal(set) var objects: [ResultType] = []
         public internal(set) var lastError: (any Error)? = nil
     }
     

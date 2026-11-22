@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		EC1CFE5030B38F4A00949352 /* BindingKit in Frameworks */ = {isa = PBXBuildFile; productRef = EC1CFE4F30B38F4A00949352 /* BindingKit */; };
+		EC1CFE5230B3910E00949352 /* FetchRequest3View.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC1CFE5130B3910E00949352 /* FetchRequest3View.swift */; };
 		EC3AFBF230A1F513003EFF32 /* BindingKit in Frameworks */ = {isa = PBXBuildFile; productRef = EC3AFBF130A1F513003EFF32 /* BindingKit */; };
 		EC4E02D03098DC2700B1B7F4 /* ItemRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4E02CF3098DC2700B1B7F4 /* ItemRow.swift */; };
 		EC4E02D23099F14B00B1B7F4 /* FetchedResultsEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4E02D13099F14B00B1B7F4 /* FetchedResultsEvaluator.swift */; };
@@ -28,6 +29,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		EC1CFE5130B3910E00949352 /* FetchRequest3View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchRequest3View.swift; sourceTree = "<group>"; };
 		EC4E02CF3098DC2700B1B7F4 /* ItemRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRow.swift; sourceTree = "<group>"; };
 		EC4E02D13099F14B00B1B7F4 /* FetchedResultsEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchedResultsEvaluator.swift; sourceTree = "<group>"; };
 		EC4E02D3309A0BF000B1B7F4 /* FetchRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchRequestView.swift; sourceTree = "<group>"; };
@@ -98,6 +100,7 @@
 				ECE9C3E32B32F61900CF6103 /* FetchViewRedesign.swift */,
 				ECE7C3543087BC1D0052E6B9 /* FetchRequest2.swift */,
 				ECB46F533082B0F200E4028D /* FetchRequest2View.swift */,
+				EC1CFE5130B3910E00949352 /* FetchRequest3View.swift */,
 				EC4E02D9309A181200B1B7F4 /* Item+CoreDataClass.swift */,
 				ECE9C3D62B32F15F00CF6103 /* Assets.xcassets */,
 				ECE9C3D82B32F15F00CF6103 /* SwiftUICoreDataFetchRequestRedesign.entitlements */,
@@ -213,6 +216,7 @@
 				ECE7C359308A34140052E6B9 /* FetchModifier.swift in Sources */,
 				ECB46F543082B0F200E4028D /* FetchRequest2View.swift in Sources */,
 				ECE9C3D52B32F15D00CF6103 /* ContentView.swift in Sources */,
+				EC1CFE5230B3910E00949352 /* FetchRequest3View.swift in Sources */,
 				ECE9C3D02B32F15D00CF6103 /* Persistence.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -78,7 +78,7 @@ struct FetchViewRedesign: View {
             }
             // FetchedTable2(ascending: $ascending)
             
-           FetchRequest2View(FetchRequest2(SortedItems(ascending: ascending))) { items, context in
+           FetchRequest3View(FetchRequest3(SortedItems(ascending: ascending))) { items, error in
                 
                 Button("Update") {
                     items.first?.timestamp = Date()
@@ -95,7 +95,6 @@ struct FetchViewRedesign: View {
                             viewContext.processPendingChanges()
 //                       }
                         let c = first.timestamp
-                        print("L")
                     }
                 }
                

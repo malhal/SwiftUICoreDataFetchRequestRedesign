@@ -66,6 +66,11 @@ public struct FetchRequest3View<ResultType: NSFetchRequestResult, Content: View>
         }
     }
     
+    struct Trigger: Equatable {
+        let fetchRequest: FetchRequest3<ResultType>
+        let viewContext: NSManagedObjectContext
+    }
+    
     public var body: some View {
         content(observer?.objects ?? [], lastError)
             .onAppear {
@@ -73,7 +78,7 @@ public struct FetchRequest3View<ResultType: NSFetchRequestResult, Content: View>
                     update()
                 }
             }
-            .onChange(of: fetchRequest) {
+            .onChange(of: Trigger(fetchRequest: fetchRequest, viewContext: viewContext)) {
                 update()
             }
     }
